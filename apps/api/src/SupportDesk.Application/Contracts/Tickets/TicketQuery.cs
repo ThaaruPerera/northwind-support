@@ -6,8 +6,8 @@ namespace SupportDesk.Application.Contracts.Tickets;
 /// Filters, sorting and paging for the ticket list. Bound directly from the query string.
 /// </summary>
 /// <remarks>
-/// The web app already sends every filter below, but the API only sorts and pages so far: the
-/// filters are part of the contract and still have to be applied server-side.
+/// Every filter below is applied in the database, before the count and the paging, and the ones
+/// that are supplied combine with AND. See <c>TicketQueries.ApplyFilters</c>.
 /// </remarks>
 public sealed record TicketQuery
 {

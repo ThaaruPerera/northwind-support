@@ -17,13 +17,12 @@ namespace SupportDesk.Infrastructure.Queries;
 public sealed class TicketQueries(SupportDbContext db, IClock clock) : ITicketQueries
 {
     /// <remarks>
-    /// Sorts and pages every ticket. The filter values bound into <paramref name="query"/>
-    /// (search, status, priority, category, customer, agent, unassigned-only) are not applied
-    /// yet: server-side filtering is still to be built.
+    /// Filters, then counts, then sorts and pages, all in one SQL query shape. The count and the
+    /// page come from the same filtered source, so they always agree.
     /// </remarks>
     public async Task<PagedResult<TicketListItemDto>> GetPagedAsync(TicketQuery query, CancellationToken ct)
     {
-        var tickets = TicketsWithLabels();
+        var tickets = ApplyFilters(TicketsWithLabels(), query);
 
         var totalCount = await tickets.CountAsync(ct);
 
@@ -116,6 +115,70 @@ public sealed class TicketQueries(SupportDbContext db, IClock clock) : ITicketQu
         join category in db.Set<Category>() on ticket.CategoryId equals category.Id
         from agent in db.Set<Agent>().Where(a => a.Id == ticket.AssignedAgentId).DefaultIfEmpty()
         select new TicketWithLabels { Ticket = ticket, Customer = customer, Category = category, Agent = agent };
+
+    /// <summary>
+    /// Narrows the list to the filters that were supplied; an absent filter adds no condition, and
+    /// the ones that are present combine with AND. Everything here stays an expression tree, so the
+    /// database does the work. To add a filter, add one condition below.
+    /// </summary>
+    private static IQueryable<TicketWithLabels> ApplyFilters(IQueryable<TicketWithLabels> source, TicketQuery query)
+    {
+        if (query.Status is { } status)
+        {
+            source = source.Where(x => x.Ticket.Status == status);
+        }
+
+        if (query.Priority is { } priority)
+        {
+            source = source.Where(x => x.Ticket.Priority == priority);
+        }
+
+        if (query.CategoryId is { } categoryId)
+        {
+            source = source.Where(x => x.Ticket.CategoryId == categoryId);
+        }
+
+        if (query.CustomerId is { } customerId)
+        {
+            source = source.Where(x => x.Ticket.CustomerId == customerId);
+        }
+
+        if (query.AssignedAgentId is { } agentId)
+        {
+            source = source.Where(x => x.Ticket.AssignedAgentId == agentId);
+        }
+
+        if (query.UnassignedOnly)
+        {
+            source = source.Where(x => x.Ticket.AssignedAgentId == null);
+        }
+
+        var search = query.Search?.Trim();
+
+        if (!string.IsNullOrEmpty(search))
+        {
+            var pattern = $"%{EscapeLike(search)}%";
+
+            source = source.Where(x =>
+                EF.Functions.Like(x.Ticket.Title, pattern, LikeEscape) ||
+                EF.Functions.Like(x.Ticket.Reference, pattern, LikeEscape) ||
+                EF.Functions.Like(x.Customer.Name, pattern, LikeEscape));
+        }
+
+        return source;
+    }
+
+    private const string LikeEscape = "\\";
+
+    /// <summary>
+    /// Makes the user's text literal inside a LIKE pattern, so searching for "100%" or "a_b" finds
+    /// those characters instead of acting as wildcards.
+    /// </summary>
+    private static string EscapeLike(string text) => text
+        .Replace(LikeEscape, LikeEscape + LikeEscape)
+        .Replace("%", LikeEscape + "%")
+        .Replace("_", LikeEscape + "_")
+        .Replace("[", LikeEscape + "[");
 
     private static IQueryable<TicketWithLabels> ApplySort(IQueryable<TicketWithLabels> source, TicketQuery query)
     {

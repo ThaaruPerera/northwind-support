@@ -62,6 +62,9 @@ npm run web                   # terminal 2: React dev server
 In Development the API applies migrations and seeds demo data on startup. **Never commit real
 credentials.**
 
+**Signing in:** `alex.turner@northwind-support.example` with `Dev_Only_Password1` (every seeded agent
+uses that password; it is a local fixture). See [Task 3](#task-3-login-and-authentication).
+
 **Visual Studio 2026:** run `npm run db:up`, open `SupportDesk.sln`, set
 **SupportDesk.Presentation** as the startup project, and press F5 on the **https** profile.
 
@@ -87,6 +90,7 @@ Both pass on a clean checkout and neither needs a database.
 
 | Endpoint | Description |
 | --- | --- |
+| `POST /api/auth/login` · `GET /api/auth/me` | Sign in for a token / the signed in agent. Login is the only endpoint open without a token. |
 | `GET /api/tickets` | Paged list with `search`, `status`, `priority`, `categoryId`, `customerId`, `assignedAgentId`, `unassignedOnly`, `slaStatus`, `sortBy`, `sortDirection`. All filters are applied in the database. |
 | `GET /api/tickets/{id}` | One ticket |
 | `POST /api/tickets` | Create a ticket. Triage decides priority, due date and owner, and the response explains each in `triage`. Always `201`, even when unassigned. |
@@ -94,7 +98,9 @@ Both pass on a clean checkout and neither needs a database.
 | `PATCH /api/tickets/{id}/status` · `/assignment` | Change status / assignee |
 | `GET /api/customers` · `/api/agents` · `/api/categories` | Reference data |
 
-Errors are `ProblemDetails`: `400` validation, `404` not found, `409` conflict or business rule.
+Every other endpoint needs `Authorization: Bearer <token>`.
+Errors are `ProblemDetails`: `400` validation, `401` no valid token, `404` not found, `409` conflict or
+business rule.
 
 **Seed data:** 5 categories, 6 customers (3 Premium), 6 agents (one inactive, one at their limit)
 and 40 tickets across every status, priority and SLA state.
@@ -153,6 +159,45 @@ and browser end to end.
 **Known limitations.** No concurrency control: two creates can pick the same agent past their
 limit, and two escalations can both succeed. The SQL filter uses whole seconds, so a ticket within
 a second of the 25% line may differ from its badge. Triage reasons come back on create only.
+
+## Task 3: login and authentication
+
+**Development login.** Alex Turner, `alex.turner@northwind-support.example`, password
+`Dev_Only_Password1`. All six agents share that password, which is a local fixture and published on
+purpose. Yuki Tanaka (`yuki.tanaka@northwind-support.example`) is inactive: she gets the same
+"Invalid email or password" as a wrong password.
+
+**How it works.** Credentials are a nullable `PasswordHash` column on `Agents`, not a users table:
+agents are the only users and there are no roles, so a table would be a join for nothing. Hashing is
+ASP.NET Identity's `PasswordHasher` (PBKDF2, HMAC-SHA512, a random salt per hash, 210,000 iterations)
+behind an `IPasswordHasher` interface. The dev password is hashed at seed time, and a repeatable step
+also gives a hash to agents seeded before sign in existed (the `db/*.sql` route cannot create hashes).
+`POST /api/auth/login` returns a signed JWT (HS256), its expiry and the agent. The lifetime is 8 hours,
+set by `Jwt:LifetimeMinutes` (1 to 1440). The key is `Jwt:SigningKey` or `Jwt__SigningKey`, at least 32
+bytes and checked at startup. Development uses a fake placeholder in `appsettings.Development.json`,
+`.env.example` lists the settings, and outside Development the API will not start without a real key.
+A fallback policy requires a signed in agent on every endpoint, and only login is `[AllowAnonymous]`,
+so an endpoint added later is protected by default. A test starts the real API, lists its endpoints and
+checks each one. `escalatedBy` comes from the token and not the request. In the web app the token and
+its expiry are kept in `localStorage` and attached by `api/client.ts`; an expired one is cleared on page
+load, and any 401 clears the session and goes to `/login`, which returns to the page that was wanted.
+
+**Decisions.**
+- A wrong email, a wrong password and an inactive agent get the same 401 and message, and an unknown
+  email is still checked against a dummy hash so the three take about the same time. Emails match
+  regardless of case.
+- `localStorage` over an `httpOnly` cookie, because the brief has the client attach the token and a
+  cookie would need CSRF protection. The cost is that any script running on the page can read the
+  token (XSS). An `httpOnly` cookie would be the production choice.
+- `me` and escalation look the agent up again instead of trusting the token's name, so the history
+  records the current name and a deactivated agent is refused.
+
+**For production:** an `httpOnly` cookie or a backend for the frontend, the key in a secret store and
+rotated, HTTPS only, lockout and rate limiting on login, and an agent check on every request.
+
+**Known limitations.** A deactivated agent's token still opens ordinary endpoints until it expires
+(`me`, escalation and new sign ins refuse them). No lockout or rate limiting, refresh tokens,
+revocation or roles: every signed in agent can do everything.
 
 ## Troubleshooting
 

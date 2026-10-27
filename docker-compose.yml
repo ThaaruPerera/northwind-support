@@ -1,5 +1,10 @@
-# SQL Server for local development only. The password below is a throwaway local
-# placeholder - never commit a real credential.
+# The local stack: SQL Server, and optionally the API built from apps/api/Dockerfile.
+#
+#   npm run db:up            only SQL Server, for running the API and the web app from source
+#   docker compose up --build   SQL Server and the API, migrated and seeded, on http://localhost:5080
+#
+# The passwords and the signing key below are throwaway local placeholders, only used when nothing is
+# provided. Never commit a real credential; provide real ones through .env or the environment.
 services:
   sqlserver:
     image: mcr.microsoft.com/mssql/server:2022-latest
@@ -22,6 +27,41 @@ services:
       timeout: 5s
       retries: 12
       start_period: 20s
+
+  api:
+    build:
+      context: .
+      dockerfile: apps/api/Dockerfile
+    container_name: supportdesk-api
+    ports:
+      - "5080:8080"
+    # Only once SQL Server answers: the API migrates and seeds as it starts, and needs the database for it.
+    depends_on:
+      sqlserver:
+        condition: service_healthy
+    # None of this is in the image. It is handed to the container when it starts.
+    environment:
+      ASPNETCORE_ENVIRONMENT: "${ASPNETCORE_ENVIRONMENT:-Development}"
+      # The service name is the host name on the compose network.
+      ConnectionStrings__Default: "Server=sqlserver;Database=SupportDesk;User Id=sa;Password=${MSSQL_SA_PASSWORD:-Local_Dev_Password1};TrustServerCertificate=True;Encrypt=False"
+      Jwt__SigningKey: "${Jwt__SigningKey:-placeholder-replace-with-a-random-secret-before-real-use}"
+      # The demo stack migrates an empty database and fills it. A real deployment turns both off.
+      Database__MigrateOnStartup: "${Database__MigrateOnStartup:-true}"
+      Database__SeedDemoData: "${Database__SeedDemoData:-true}"
+    # The runtime image has no curl, so the check talks to the port with bash, which can open /dev/tcp
+    # (the plain sh that CMD-SHELL would use cannot).
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "bash",
+          "-c",
+          "exec 3<>/dev/tcp/127.0.0.1/8080 && printf 'GET /health HTTP/1.0\\r\\n\\r\\n' >&3 && head -n 1 <&3 | grep -q ' 200 '",
+        ]
+      interval: 10s
+      timeout: 5s
+      retries: 6
+      start_period: 40s
 
 volumes:
   supportdesk-sql:

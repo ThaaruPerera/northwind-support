@@ -11,6 +11,10 @@
    src/Infrastructure/Persistence/SupportDbSeeder.cs inserts exactly this
    data using the same relative offsets.
 
+   Agents are inserted without a password, so nobody can sign in to a database seeded only with
+   this script. A password hash needs the application's hasher, which SQL cannot run; the EF Core
+   seeder sets the development password for any agent without one when the API starts.
+
    Idempotent: it deletes and re-inserts everything.
    ===================================================================== */
 

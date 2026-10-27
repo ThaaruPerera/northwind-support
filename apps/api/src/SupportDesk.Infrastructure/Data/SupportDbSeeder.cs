@@ -17,8 +17,18 @@ namespace SupportDesk.Infrastructure.Data;
 /// Every aggregate is built through its own behaviour. The two historical values no behaviour
 /// produces - a ticket's last update and its due date - are set through EF Core directly.
 /// </remarks>
-public sealed class SupportDbSeeder(SupportDbContext db, IClock clock, ILogger<SupportDbSeeder> logger)
+public sealed class SupportDbSeeder(
+    SupportDbContext db,
+    IClock clock,
+    IPasswordHasher passwordHasher,
+    ILogger<SupportDbSeeder> logger)
 {
+    /// <summary>
+    /// The password every seeded agent signs in with. It is a fixture for a local machine and is
+    /// published in the README, so it must never be used anywhere real.
+    /// </summary>
+    public const string DevelopmentPassword = "Dev_Only_Password1";
+
     /// <summary>Seeds the database, unless it already has tickets in it.</summary>
     public async Task SeedAsync(CancellationToken ct = default)
     {
@@ -48,6 +58,30 @@ public sealed class SupportDbSeeder(SupportDbContext db, IClock clock, ILogger<S
         logger.LogInformation(
             "Seeded {Categories} categories, {Customers} customers, {Agents} agents and {Tickets} tickets.",
             categories.Count, customers.Count, agents.Count, await db.Set<Ticket>().CountAsync(ct));
+    }
+
+    /// <summary>
+    /// Gives every agent who has no password the development one, stored as a hash. It runs on its own
+    /// and only touches agents without a hash, so a database seeded before sign in existed gets
+    /// credentials too, and running it again changes nothing.
+    /// </summary>
+    public async Task SeedCredentialsAsync(CancellationToken ct = default)
+    {
+        var withoutPassword = await db.Set<Agent>().Where(a => a.PasswordHash == null).ToListAsync(ct);
+
+        if (withoutPassword.Count == 0)
+        {
+            return;
+        }
+
+        foreach (var agent in withoutPassword)
+        {
+            agent.SetPasswordHash(passwordHasher.Hash(DevelopmentPassword));
+        }
+
+        await db.SaveChangesAsync(ct);
+
+        logger.LogInformation("Gave {Agents} agents the development password.", withoutPassword.Count);
     }
 
     private static List<Category> SeedCategories() =>

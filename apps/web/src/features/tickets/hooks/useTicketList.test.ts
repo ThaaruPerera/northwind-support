@@ -92,6 +92,7 @@ describe('useTicketList', () => {
       ['customer', { customerId: 3 }],
       ['assigned agent', { assignedAgentId: 4 }],
       ['unassigned only', { unassignedOnly: true }],
+      ['SLA status', { slaStatus: 'AtRisk' }],
       ['sort', { sortBy: 'dueAtUtc', sortDirection: 'asc' }],
     ] as const)('requests immediately when the %s changes', async (_name, patch) => {
       const { result } = await renderSettled();
@@ -182,6 +183,37 @@ describe('useTicketList', () => {
       });
 
       expect(result.current.data?.items[0].reference).toBe('TCK-0002');
+    });
+
+    it('sends only the SLA filter when only the SLA filter changed, with nothing else wired up', async () => {
+      const { result } = await renderSettled();
+
+      act(() => {
+        result.current.updateFilters({ slaStatus: 'Breached' });
+      });
+      await flushWithoutWaiting();
+
+      expect(getTickets).toHaveBeenCalledTimes(1);
+      expect(getTickets).toHaveBeenLastCalledWith(
+        expect.objectContaining({ slaStatus: 'Breached', search: '', page: 1 }),
+      );
+    });
+
+    it('stops sending the SLA filter once the filters are cleared', async () => {
+      const { result } = await renderSettled();
+
+      act(() => {
+        result.current.updateFilters({ slaStatus: 'Breached' });
+      });
+      await flushWithoutWaiting();
+
+      act(() => {
+        result.current.resetFilters();
+      });
+      await flushWithoutWaiting();
+
+      expect(getTickets).toHaveBeenCalledTimes(2);
+      expect(getTickets.mock.lastCall?.[0].slaStatus).toBeUndefined();
     });
 
     it('does not request again for an unchanged filter value', async () => {

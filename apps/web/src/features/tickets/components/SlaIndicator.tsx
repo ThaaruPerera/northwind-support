@@ -1,22 +1,7 @@
-import { Badge, type BadgeTone } from '../../../components/Badge';
+import { Badge } from '../../../components/Badge';
 import { formatDateTime } from '../../../lib/format';
 import type { SlaStatus } from '../../../types/api';
-
-interface SlaDisplay {
-  label: string;
-  /** A shape that differs for every state, so the state never depends on colour alone. */
-  symbol: string;
-  tone: BadgeTone;
-}
-
-// A Record over every status: a state added to the API will not compile until it is shown here.
-const display: Record<SlaStatus, SlaDisplay> = {
-  WithinSla: { label: 'Within SLA', symbol: '●', tone: 'info' },
-  AtRisk: { label: 'At risk', symbol: '▲', tone: 'warning' },
-  Breached: { label: 'Breached', symbol: '✕', tone: 'danger' },
-  Met: { label: 'Met', symbol: '✔', tone: 'success' },
-  NotApplicable: { label: 'No SLA', symbol: '–', tone: 'neutral' },
-};
+import { slaDisplay } from '../lib/sla';
 
 interface SlaIndicatorProps {
   status: SlaStatus;
@@ -30,7 +15,7 @@ interface SlaIndicatorProps {
  * colour only reinforce them.
  */
 export function SlaIndicator({ status, dueAtUtc }: SlaIndicatorProps) {
-  const { label, symbol, tone } = display[status];
+  const { label, symbol, tone } = slaDisplay[status];
 
   return (
     <div className="sla-indicator">

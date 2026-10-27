@@ -1,0 +1,31 @@
+# What the API image's build does not need, and in some cases must never see. The build context is the
+# repository root, so everything not listed here is sent to Docker.
+
+# Build output and dependencies, which the image makes for itself.
+**/bin/
+**/obj/
+**/node_modules/
+
+# Version control.
+.git/
+.gitignore
+.gitattributes
+
+# Secrets and local settings. The development settings file holds a local database password and a development
+# signing key; leaving it out of the context means it cannot end up in any layer, not even a build one.
+.env
+.env.*
+**/appsettings.Development.json
+
+# Parts of the repository that are not the API.
+apps/web/
+apps/api/tests/
+db/
+spec/
+standalone/
+.github/
+.vscode/
+.config/
+docker-compose*.yml
+*.md
+*.pdf

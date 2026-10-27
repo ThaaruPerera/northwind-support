@@ -32,6 +32,9 @@ public sealed record TicketQuery
 
     public bool UnassignedOnly { get; init; }
 
+    /// <summary>Keeps only tickets in this SLA state. It is worked out in the database, as it is shown.</summary>
+    public SlaStatus? SlaStatus { get; init; }
+
     /// <summary>createdAtUtc | updatedAtUtc | dueAtUtc | priority | status.</summary>
     public string SortBy { get; init; } = "createdAtUtc";
 

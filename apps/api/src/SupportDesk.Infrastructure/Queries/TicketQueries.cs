@@ -148,7 +148,7 @@ public sealed class TicketQueries(SupportDbContext db, IClock clock, SlaSettings
     /// the ones that are present combine with AND. Everything here stays an expression tree, so the
     /// database does the work. To add a filter, add one condition below.
     /// </summary>
-    private static IQueryable<TicketWithLabels> ApplyFilters(IQueryable<TicketWithLabels> source, TicketQuery query)
+    private IQueryable<TicketWithLabels> ApplyFilters(IQueryable<TicketWithLabels> source, TicketQuery query)
     {
         if (query.Status is { } status)
         {
@@ -178,6 +178,13 @@ public sealed class TicketQueries(SupportDbContext db, IClock clock, SlaSettings
         if (query.UnassignedOnly)
         {
             source = source.Where(x => x.Ticket.AssignedAgentId == null);
+        }
+
+        if (query.SlaStatus is { } slaStatus)
+        {
+            source = source.WhereOn(
+                x => x.Ticket,
+                SlaStatusFilter.For(slaStatus, clock.UtcNow, sla.AtRiskThresholdPercent));
         }
 
         var search = query.Search?.Trim();

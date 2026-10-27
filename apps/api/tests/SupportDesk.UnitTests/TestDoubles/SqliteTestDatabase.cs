@@ -16,7 +16,7 @@ public sealed class SqliteTestDatabase : IDisposable
     {
         _connection.Open();
 
-        Db = new SupportDbContext(new DbContextOptionsBuilder<SupportDbContext>().UseSqlite(_connection).Options);
+        Db = new SqliteSupportDbContext(new DbContextOptionsBuilder<SupportDbContext>().UseSqlite(_connection).Options);
         Db.Database.EnsureCreated();
     }
 

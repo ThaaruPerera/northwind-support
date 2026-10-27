@@ -44,11 +44,16 @@ if (app.Environment.IsDevelopment())
     app.UseSwaggerUI();
 }
 
-// A developer machine is one command away from a working database. A real deployment leaves this off
-// and runs migrations as a separate step; see the README.
+// Both default to on for a developer machine, which is then one command away from a working database,
+// and off everywhere else: a real deployment migrates as a separate step and never seeds demo data.
 if (app.Configuration.GetValue("Database:MigrateOnStartup", app.Environment.IsDevelopment()))
 {
-    await app.MigrateAndSeedAsync();
+    await app.MigrateDatabaseAsync();
+}
+
+if (app.Configuration.GetValue("Database:SeedDemoData", app.Environment.IsDevelopment()))
+{
+    await app.SeedDemoDataAsync();
 }
 
 app.UseCors(FrontendCorsPolicy);

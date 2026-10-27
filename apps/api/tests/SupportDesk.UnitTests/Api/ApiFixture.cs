@@ -13,45 +13,72 @@ using SupportDesk.UnitTests.TestDoubles;
 namespace SupportDesk.UnitTests.Api;
 
 /// <summary>
-/// The real application, started in memory the way it starts in Development: its own configuration,
-/// its own pipeline, its own controllers. Only the database differs: SQLite in memory instead of SQL Server,
-/// filled by the application's own seeder. A request made through this has gone through everything a real one does.
+/// The real application, started in memory: its own configuration, its own pipeline, its own controllers.
+/// Only the database differs: SQLite in memory instead of SQL Server. By default it starts the way it does in
+/// Development and is filled by the application's own seeder. The other starts behave like a deployment,
+/// without the development settings file. A request made through this has gone through everything a real one does.
 /// </summary>
 public sealed class ApiFixture : IAsyncLifetime
 {
-    private readonly SqliteConnection _connection = new("DataSource=:memory:");
-    private readonly bool _databaseIsUnreachable;
-    private readonly ApiFactory _factory;
-
-    public ApiFixture() : this(databaseIsUnreachable: false)
-    {
-    }
-
-    private ApiFixture(bool databaseIsUnreachable)
-    {
-        _databaseIsUnreachable = databaseIsUnreachable;
-        _connection.Open();
-        _factory = new ApiFactory(_connection, databaseIsUnreachable);
-    }
-
-    /// <summary>The same application, but its database is somewhere that cannot be opened, as if the server were gone.</summary>
-    public static ApiFixture WithUnreachableDatabase() => new(databaseIsUnreachable: true);
-
-    public IServiceProvider Services => _factory.Services;
+    /// <summary>The signing key a production start is given, standing in for a secret from the environment.</summary>
+    public const string ProductionSigningKey = "a-production-test-key-of-at-least-32-bytes-long";
 
     public const string AlexEmail = "alex.turner@northwind-support.example";
 
+    private sealed record Start(string Environment, bool SeedDemoDataAtStartup, bool DatabaseIsUnreachable);
+
+    private readonly SqliteConnection _connection = new("DataSource=:memory:");
+    private readonly Start _start;
+    private readonly ApiFactory _factory;
+
+    public ApiFixture() : this(new Start("Development", SeedDemoDataAtStartup: false, DatabaseIsUnreachable: false))
+    {
+    }
+
+    private ApiFixture(Start start)
+    {
+        _start = start;
+        _connection.Open();
+        _factory = new ApiFactory(_connection, start);
+    }
+
+    /// <summary>The same application, but its database is somewhere that cannot be opened, as if the server were gone.</summary>
+    public static ApiFixture WithUnreachableDatabase() =>
+        new(new Start("Development", SeedDemoDataAtStartup: false, DatabaseIsUnreachable: true));
+
+    /// <summary>Started as a deployment is: Production, no development settings, and nothing asked to be seeded.</summary>
+    public static ApiFixture ProductionWithoutDemoData() =>
+        new(new Start("Production", SeedDemoDataAtStartup: false, DatabaseIsUnreachable: false));
+
+    /// <summary>Started like the demo stack: Production settings, with seeding switched on.</summary>
+    public static ApiFixture ProductionSeedingDemoData() =>
+        new(new Start("Production", SeedDemoDataAtStartup: true, DatabaseIsUnreachable: false));
+
+    public IServiceProvider Services => _factory.Services;
+
     public async Task InitializeAsync()
     {
-        if (_databaseIsUnreachable)
+        if (_start.DatabaseIsUnreachable)
         {
             return;
         }
 
-        using var scope = _factory.Services.CreateScope();
-        var db = scope.ServiceProvider.GetRequiredService<SupportDbContext>();
-        await db.Database.EnsureCreatedAsync();
+        // The schema comes first, because a start that seeds needs it to be there when the application begins.
+        await using (var schema = new SqliteSupportDbContext(
+            new DbContextOptionsBuilder<SupportDbContext>().UseSqlite(_connection).Options))
+        {
+            await schema.Database.EnsureCreatedAsync();
+        }
 
+        if (_start.Environment != "Development" || _start.SeedDemoDataAtStartup)
+        {
+            // Starting the host is what seeds, when it has been asked to; or, for the empty start, nothing happens.
+            _ = _factory.Services;
+
+            return;
+        }
+
+        using var scope = _factory.Services.CreateScope();
         var seeder = scope.ServiceProvider.GetRequiredService<SupportDbSeeder>();
         await seeder.SeedAsync();
         await seeder.SeedCredentialsAsync();
@@ -97,14 +124,31 @@ public sealed class ApiFixture : IAsyncLifetime
         await action(scope.ServiceProvider.GetRequiredService<SupportDbContext>());
     }
 
-    private sealed class ApiFactory(SqliteConnection connection, bool databaseIsUnreachable) : WebApplicationFactory<Program>
+    private sealed class ApiFactory(SqliteConnection connection, Start start) : WebApplicationFactory<Program>
     {
         protected override void ConfigureWebHost(IWebHostBuilder builder)
         {
-            builder.UseEnvironment("Development");
+            builder.UseEnvironment(start.Environment);
 
-            // The test fills the database itself, with SQLite; the SQL Server migrations are not for it.
-            builder.UseSetting("Database:MigrateOnStartup", "false");
+            if (start.Environment == "Development")
+            {
+                // Development would migrate and seed at startup. The test fills the database itself, with SQLite;
+                // the SQL Server migrations are not for it.
+                builder.UseSetting("Database:MigrateOnStartup", "false");
+                builder.UseSetting("Database:SeedDemoData", "false");
+            }
+            else
+            {
+                // What a container is given: values from the environment, since there is no development file.
+                // Migrating and seeding are left at their defaults, which is off, unless seeding is asked for.
+                builder.UseSetting("Jwt:SigningKey", ProductionSigningKey);
+                builder.UseSetting("ConnectionStrings:Default", "Server=unused");
+
+                if (start.SeedDemoDataAtStartup)
+                {
+                    builder.UseSetting("Database:SeedDemoData", "true");
+                }
+            }
 
             builder.ConfigureServices(services =>
             {
@@ -122,10 +166,9 @@ public sealed class ApiFixture : IAsyncLifetime
                     services.Remove(leftover);
                 }
 
-                // The same context the application uses, written for SQLite, handed out in its place.
                 var options = new DbContextOptionsBuilder<SupportDbContext>();
 
-                if (databaseIsUnreachable)
+                if (start.DatabaseIsUnreachable)
                 {
                     options.UseSqlite("Data Source=/no/such/folder/support.db;Mode=ReadWrite");
                 }
@@ -134,6 +177,7 @@ public sealed class ApiFixture : IAsyncLifetime
                     options.UseSqlite(connection);
                 }
 
+                // The same context the application uses, written for SQLite, handed out in its place.
                 services.AddSingleton(options.Options);
                 services.AddScoped<SupportDbContext>(provider =>
                     new SqliteSupportDbContext(provider.GetRequiredService<DbContextOptions<SupportDbContext>>()));

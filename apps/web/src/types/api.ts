@@ -179,6 +179,20 @@ export interface CustomerDetail {
   tickets: TicketListItem[];
 }
 
+/** The signed in agent, as the API describes them. */
+export interface AuthUser {
+  id: number;
+  fullName: string;
+  email: string;
+}
+
+/** What signing in gives back: the token to send from now on, when it stops working, and who it is for. */
+export interface LoginResult {
+  token: string;
+  expiresAtUtc: string;
+  user: AuthUser;
+}
+
 /** RFC 7807 problem document, which is how the API reports every failure. */
 export interface ProblemDetails {
   type?: string;

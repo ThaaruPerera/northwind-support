@@ -1,3 +1,4 @@
+import { clearSession, getToken } from '../auth/session';
 import type { ProblemDetails } from '../types/api';
 
 /**
@@ -25,21 +26,53 @@ export class ApiError extends Error {
   }
 }
 
+/** Options for one call, beyond what `fetch` takes. */
+export interface RequestOptions {
+  /**
+   * For the calls made before anyone is signed in. No token is sent, and a 401 is an ordinary error
+   * to show (wrong password) and not the end of a session.
+   */
+  anonymous?: boolean;
+}
+
+let onUnauthorized: (() => void) | undefined;
+
 /**
- * The single place that talks to the API. Returns parsed JSON, or throws an
- * {@link ApiError} that callers can show to the user.
+ * Says what to do when the API turns a signed in request away: the app registers a redirect to the
+ * login page here. The session is cleared first either way.
  */
-export async function request<T>(path: string, init?: RequestInit): Promise<T> {
+export function setUnauthorizedHandler(handler: (() => void) | undefined): void {
+  onUnauthorized = handler;
+}
+
+/**
+ * The single place that talks to the API. Sends the signed in agent's token on every call, returns
+ * parsed JSON, or throws an {@link ApiError} that callers can show to the user. Any 401 means the
+ * token is missing, expired or no longer accepted, so the session ends.
+ */
+export async function request<T>(
+  path: string,
+  init?: RequestInit,
+  options: RequestOptions = {},
+): Promise<T> {
+  const token = options.anonymous ? undefined : getToken();
+
   const response = await fetch(`${baseUrl}${path}`, {
     ...init,
     headers: {
       'Content-Type': 'application/json',
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
       ...(init?.headers ?? {}),
     },
   });
 
   if (!response.ok) {
     const problem = await readProblem(response);
+
+    if (response.status === 401 && !options.anonymous) {
+      clearSession();
+      onUnauthorized?.();
+    }
 
     throw new ApiError(
       response.status,

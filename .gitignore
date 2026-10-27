@@ -44,3 +44,6 @@ secrets.json
 ## OS
 .DS_Store
 Thumbs.db
+
+## Design mockups kept on a developer machine, not part of the app
+standalone/

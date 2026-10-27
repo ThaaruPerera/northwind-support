@@ -65,6 +65,19 @@ a {
   gap: 16px;
 }
 
+.app__user {
+  margin-left: auto;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  color: var(--colour-muted);
+  font-size: 0.9rem;
+}
+
+.app__user strong {
+  color: var(--colour-text);
+}
+
 .app__nav a {
   text-decoration: none;
   padding: 4px 2px;

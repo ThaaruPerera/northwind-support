@@ -28,7 +28,7 @@ export function TicketSummary({ ticket }: TicketSummaryProps) {
 
         <div>
           <dt>Assigned agent</dt>
-          <dd>{ticket.assignedAgent?.fullName ?? 'Unassigned'}</dd>
+          <dd>{assignedTo(ticket)}</dd>
         </div>
 
         <div>
@@ -80,4 +80,13 @@ export function TicketSummary({ ticket }: TicketSummaryProps) {
       </dl>
     </div>
   );
+}
+
+/** The agent's name, or that nobody has the ticket and, when it is known, why. */
+function assignedTo(ticket: TicketDetail): string {
+  if (ticket.assignedAgent) {
+    return ticket.assignedAgent.fullName;
+  }
+
+  return ticket.unassignedReason ? `Unassigned: ${ticket.unassignedReason}` : 'Unassigned';
 }

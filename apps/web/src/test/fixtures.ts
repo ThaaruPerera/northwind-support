@@ -53,6 +53,8 @@ export function ticketDetail(overrides: Partial<TicketDetail> = {}): TicketDetai
     dueAtUtc: '2026-09-24T16:12:00Z',
     resolvedAtUtc: null,
     slaStatus: 'WithinSla',
+    unassignedReason: null,
+    triage: null,
     ...overrides,
   };
 }

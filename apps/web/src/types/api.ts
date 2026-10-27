@@ -64,6 +64,13 @@ export interface TicketListItem {
   slaStatus: SlaStatus;
 }
 
+/** Why a new ticket ended up the way it did: one sentence for each decision triage made. */
+export interface Triage {
+  priorityReason: string;
+  slaReason: string;
+  assignmentReason: string;
+}
+
 export interface TicketDetail {
   id: number;
   reference: string;
@@ -79,6 +86,10 @@ export interface TicketDetail {
   dueAtUtc: string | null;
   resolvedAtUtc: string | null;
   slaStatus: SlaStatus;
+  /** Why nobody owns the ticket. Null while it has an owner. */
+  unassignedReason: string | null;
+  /** The reasons behind the decisions made when the ticket was raised. Only present on create. */
+  triage: Triage | null;
 }
 
 /** One row of a ticket's escalation history. */

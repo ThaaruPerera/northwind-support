@@ -45,6 +45,15 @@ public sealed class Ticket : AggregateRoot
 
     public DateTime? ResolvedAtUtc { get; private set; }
 
+    /// <summary>
+    /// When the current SLA window began: the ticket's creation, or the latest escalation. At risk
+    /// is measured from here, so an escalated ticket gets a fresh window and not a short one.
+    /// </summary>
+    public DateTime SlaStartedAtUtc { get; private set; }
+
+    /// <summary>Why the ticket has no owner. Null while it has one, or if it was never explained.</summary>
+    public string? UnassignedReason { get; private set; }
+
     /// <summary>True while the ticket still needs work from an agent.</summary>
     public bool IsOpen => Status is not (TicketStatus.Resolved or TicketStatus.Closed);
 
@@ -75,7 +84,8 @@ public sealed class Ticket : AggregateRoot
             Priority = priority,
             Status = TicketStatus.New,
             CreatedAtUtc = nowUtc,
-            UpdatedAtUtc = nowUtc
+            UpdatedAtUtc = nowUtc,
+            SlaStartedAtUtc = nowUtc
         };
     }
 
@@ -106,9 +116,14 @@ public sealed class Ticket : AggregateRoot
     /// Hands the ticket to an agent, or takes it back off them when <paramref name="agentId"/>
     /// is null. Whether the agent may take it is checked by the caller, which can see agents.
     /// </summary>
+    /// <remarks>
+    /// An explanation of why a ticket was unassigned goes stale as soon as someone decides who has
+    /// it, so any assignment through here clears it.
+    /// </remarks>
     public void AssignTo(int? agentId, DateTime nowUtc)
     {
         AssignedAgentId = agentId;
+        UnassignedReason = null;
         UpdatedAtUtc = nowUtc;
     }
 }

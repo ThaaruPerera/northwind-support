@@ -145,7 +145,7 @@ INSERT INTO dbo.AgentSpecializations (AgentId, CategoryId) VALUES
 )
 INSERT INTO dbo.Tickets
     (Reference, Title, [Description], CustomerId, CategoryId, AssignedAgentId, Priority, [Status],
-     CreatedAtUtc, UpdatedAtUtc, DueAtUtc, ResolvedAtUtc)
+     CreatedAtUtc, UpdatedAtUtc, DueAtUtc, ResolvedAtUtc, SlaStartedAtUtc)
 SELECT
     s.Ref,
     s.Title,
@@ -159,7 +159,8 @@ SELECT
     DATEADD(MINUTE, -s.CreatedMinutesAgo + ISNULL(s.ResolvedAfterMinutes, s.CreatedMinutesAgo / 2), @Now),
     DATEADD(MINUTE, -s.CreatedMinutesAgo + s.SlaWindowMinutes, @Now),
     CASE WHEN s.ResolvedAfterMinutes IS NULL THEN NULL
-         ELSE DATEADD(MINUTE, -s.CreatedMinutesAgo + s.ResolvedAfterMinutes, @Now) END
+         ELSE DATEADD(MINUTE, -s.CreatedMinutesAgo + s.ResolvedAfterMinutes, @Now) END,
+    DATEADD(MINUTE, -s.CreatedMinutesAgo, @Now)
 FROM Seed AS s;
 GO
 

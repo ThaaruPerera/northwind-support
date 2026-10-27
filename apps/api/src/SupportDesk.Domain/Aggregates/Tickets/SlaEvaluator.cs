@@ -6,11 +6,7 @@ namespace SupportDesk.Domain.Aggregates.Tickets;
 /// </summary>
 public static class SlaEvaluator
 {
-    /// <summary>
-    /// The status with no notion of "at risk": it only knows the due date. Kept until every
-    /// caller can say when the SLA clock started.
-    /// </summary>
-    public static SlaStatus Evaluate(DateTime? dueAtUtc, DateTime? resolvedAtUtc, DateTime nowUtc) =>
+    private static SlaStatus Evaluate(DateTime? dueAtUtc, DateTime? resolvedAtUtc, DateTime nowUtc) =>
         dueAtUtc is null ? SlaStatus.NotApplicable
         : resolvedAtUtc is not null
             ? (resolvedAtUtc <= dueAtUtc ? SlaStatus.Met : SlaStatus.Breached)

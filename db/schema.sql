@@ -101,6 +101,9 @@ CREATE TABLE dbo.Tickets
     UpdatedAtUtc    DATETIME2(3)    NOT NULL CONSTRAINT DF_Tickets_UpdatedAtUtc DEFAULT (SYSUTCDATETIME()),
     DueAtUtc        DATETIME2(3)    NULL,
     ResolvedAtUtc   DATETIME2(3)    NULL,
+    /* When the current SLA window began: creation, or the latest escalation. */
+    SlaStartedAtUtc DATETIME2(3)    NOT NULL,
+    UnassignedReason NVARCHAR(500)  NULL,
     CONSTRAINT UQ_Tickets_Reference UNIQUE (Reference),
     CONSTRAINT FK_Tickets_Customers FOREIGN KEY (CustomerId)  REFERENCES dbo.Customers (Id),
     CONSTRAINT FK_Tickets_Categories FOREIGN KEY (CategoryId) REFERENCES dbo.Categories (Id),

@@ -25,6 +25,15 @@ public class TicketTests
     }
 
     [Fact]
+    public void Raise_StartsTheSlaClockAtCreationWithNoUnassignedReason()
+    {
+        var ticket = new TicketBuilder().Build();
+
+        Assert.Equal(FixedClock.DefaultNow, ticket.SlaStartedAtUtc);
+        Assert.Null(ticket.UnassignedReason);
+    }
+
+    [Fact]
     public void ChangeStatus_WhenResolving_StampsResolutionAndUpdateTimes()
     {
         var ticket = new TicketBuilder().WithStatus(TicketStatus.InProgress).Build();

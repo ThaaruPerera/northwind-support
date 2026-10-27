@@ -42,7 +42,7 @@ public sealed class TicketQueriesFilterTests : IDisposable
 
         Seed();
 
-        _queries = new TicketQueries(_db, new FixedClock());
+        _queries = new TicketQueries(_db, new FixedClock(), SlaTestSettings.Default());
     }
 
     public void Dispose()

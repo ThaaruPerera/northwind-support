@@ -9,23 +9,23 @@ public class SlaEvaluatorTests
 
     [Fact]
     public void Evaluate_WithoutADueDate_IsNotApplicable() =>
-        Assert.Equal(SlaStatus.NotApplicable, SlaEvaluator.Evaluate(null, null, Now));
+        Assert.Equal(SlaStatus.NotApplicable, SlaEvaluator.Evaluate(null, null, Now, Now, 25));
 
     [Fact]
     public void Evaluate_ResolvedOnTime_IsMet() =>
-        Assert.Equal(SlaStatus.Met, SlaEvaluator.Evaluate(Now, Now, Now.AddDays(1)));
+        Assert.Equal(SlaStatus.Met, SlaEvaluator.Evaluate(Now, Now, Now.AddDays(1), Now.AddHours(-8), 25));
 
     [Fact]
     public void Evaluate_ResolvedLate_IsBreached() =>
-        Assert.Equal(SlaStatus.Breached, SlaEvaluator.Evaluate(Now, Now.AddMinutes(1), Now));
+        Assert.Equal(SlaStatus.Breached, SlaEvaluator.Evaluate(Now, Now.AddMinutes(1), Now, Now.AddHours(-8), 25));
 
     [Fact]
     public void Evaluate_OpenAndPastDue_IsBreached() =>
-        Assert.Equal(SlaStatus.Breached, SlaEvaluator.Evaluate(Now.AddMinutes(-1), null, Now));
+        Assert.Equal(SlaStatus.Breached, SlaEvaluator.Evaluate(Now.AddMinutes(-1), null, Now, Now.AddHours(-8), 25));
 
     [Fact]
     public void Evaluate_OpenAndBeforeDue_IsWithinSla() =>
-        Assert.Equal(SlaStatus.WithinSla, SlaEvaluator.Evaluate(Now.AddHours(1), null, Now));
+        Assert.Equal(SlaStatus.WithinSla, SlaEvaluator.Evaluate(Now.AddHours(10), null, Now, Now.AddHours(-1), 25));
 
     /// <summary>An 8 hour window that started at <see cref="Now"/>; 25% of it is the last 2 hours.</summary>
     public class WithAtRisk

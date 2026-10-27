@@ -9,6 +9,7 @@ using SupportDesk.Application.Features.Tickets.Commands.ChangeTicketStatus;
 using SupportDesk.Application.Features.Tickets.Commands.RaiseTicket;
 using SupportDesk.Application.Features.Tickets.Queries.GetTicket;
 using SupportDesk.Application.Features.Tickets.Queries.SearchTickets;
+using SupportDesk.Domain.Aggregates.Tickets;
 
 namespace SupportDesk.Application;
 
@@ -31,6 +32,9 @@ public static class DependencyInjection
         services.AddScoped<GetAgentsQueryHandler>();
 
         services.AddScoped<GetCategoriesQueryHandler>();
+
+        // Pure rule classes, shared by raising and escalating; they hold no state beyond settings.
+        services.AddSingleton<SlaPolicy>();
 
         services.AddValidatorsFromAssemblyContaining<RaiseTicketCommandHandler>(ServiceLifetime.Singleton);
 

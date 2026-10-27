@@ -1,5 +1,7 @@
 using System.Text;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Options;
 using Microsoft.IdentityModel.Tokens;
 using SupportDesk.Application.Abstractions;
@@ -27,6 +29,13 @@ public static class JwtAuthenticationExtensions
         services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme).AddJwtBearer();
         services.AddSingleton<IConfigureOptions<JwtBearerOptions>, ConfigureJwtBearer>();
 
+        // The fallback policy applies to every endpoint that does not say otherwise, so signing in is
+        // the rule and being open is the exception: only [AllowAnonymous] endpoints, such as login,
+        // are reachable without a token, and an endpoint added later is protected without anyone
+        // having to remember to protect it.
+        services.AddAuthorization(options =>
+            options.FallbackPolicy = new AuthorizationPolicyBuilder().RequireAuthenticatedUser().Build());
+
         return services;
     }
 
@@ -52,8 +61,29 @@ public static class JwtAuthenticationExtensions
                 NameClaimType = "name",
                 ClockSkew = TimeSpan.FromSeconds(30)
             };
+
+            options.Events = new JwtBearerEvents { OnChallenge = WriteUnauthorizedAsync };
         }
 
         public void Configure(JwtBearerOptions options) => Configure(Options.DefaultName, options);
+
+        /// <summary>Answers a request with no valid token in the same problem format as every other error.</summary>
+        private static Task WriteUnauthorizedAsync(JwtBearerChallengeContext context)
+        {
+            context.HandleResponse();
+
+            var problem = new ProblemDetails
+            {
+                Title = "Unauthorized",
+                Detail = "Sign in to continue.",
+                Status = StatusCodes.Status401Unauthorized
+            };
+            problem.Extensions["traceId"] = context.HttpContext.TraceIdentifier;
+
+            context.Response.StatusCode = StatusCodes.Status401Unauthorized;
+            context.Response.Headers.WWWAuthenticate = JwtBearerDefaults.AuthenticationScheme;
+
+            return context.Response.WriteAsJsonAsync(problem, context.HttpContext.RequestAborted);
+        }
     }
 }

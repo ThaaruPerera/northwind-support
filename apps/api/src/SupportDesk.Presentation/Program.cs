@@ -25,11 +25,10 @@ builder.Services.AddCors(options => options.AddPolicy(
         .AllowAnyMethod()));
 
 builder.Services.AddEndpointsApiExplorer();
-builder.Services.AddSwaggerGen();
+builder.Services.AddSwaggerWithBearerAuth();
 
 builder.Services.AddSlaSettings(builder.Configuration);
 builder.Services.AddJwtAuthentication(builder.Configuration);
-builder.Services.AddAuthorization();
 builder.Services.AddApplication();
 builder.Services.AddInfrastructure(builder.Configuration);
 
@@ -41,8 +40,12 @@ if (app.Environment.IsDevelopment())
 {
     app.UseSwagger();
     app.UseSwaggerUI();
+}
 
-    // Keeps a developer machine one command away from a working database.
+// A developer machine is one command away from a working database. A real deployment leaves this off
+// and runs migrations as a separate step; see the README.
+if (app.Configuration.GetValue("Database:MigrateOnStartup", app.Environment.IsDevelopment()))
+{
     await app.MigrateAndSeedAsync();
 }
 
@@ -54,3 +57,6 @@ app.UseAuthorization();
 app.MapControllers();
 
 app.Run();
+
+/// <summary>Lets the test host start the real application.</summary>
+public partial class Program;

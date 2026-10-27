@@ -3,7 +3,7 @@
   <!--
     Unit tests, laid out to mirror src: Domain/ tests the aggregates on their own; Application/
     tests the commands and queries with their repositories mocked. Sqlite is available for
-    repository and query tests against a real database.
+    repository and query tests against a real database, and Mvc.Testing runs the real API in memory.
   -->
   <PropertyGroup>
     <IsPackable>false</IsPackable>
@@ -13,10 +13,12 @@
     <ProjectReference Include="../../src/SupportDesk.Application/SupportDesk.Application.csproj" />
     <ProjectReference Include="../../src/SupportDesk.Domain/SupportDesk.Domain.csproj" />
     <ProjectReference Include="../../src/SupportDesk.Infrastructure/SupportDesk.Infrastructure.csproj" />
+    <ProjectReference Include="../../src/SupportDesk.Presentation/SupportDesk.Presentation.csproj" />
   </ItemGroup>
 
   <ItemGroup>
     <PackageReference Include="coverlet.collector" />
+    <PackageReference Include="Microsoft.AspNetCore.Mvc.Testing" />
     <PackageReference Include="Microsoft.EntityFrameworkCore.Sqlite" />
     <PackageReference Include="Microsoft.NET.Test.Sdk" />
     <PackageReference Include="Moq" />

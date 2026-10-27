@@ -20,6 +20,16 @@ public sealed class IdentityPasswordHasher : IPasswordHasher
     private readonly PasswordHasher<object> _hasher = new(
         Options.Create(new PasswordHasherOptions { IterationCount = IterationCount }));
 
+    // Made on first use and then kept: hashing is slow on purpose, and one is enough.
+    private readonly Lazy<string> _dummyHash;
+
+    public IdentityPasswordHasher()
+    {
+        _dummyHash = new Lazy<string>(() => Hash(Guid.NewGuid().ToString("N")));
+    }
+
+    public string DummyHash => _dummyHash.Value;
+
     public string Hash(string password) => _hasher.HashPassword(NoUser, password);
 
     public bool Verify(string passwordHash, string password)

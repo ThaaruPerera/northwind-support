@@ -57,6 +57,46 @@ public sealed class AgentRepositoryTests : IDisposable
         Assert.Empty(candidateYuki.SpecializationCategoryIds);
     }
 
+    [Theory]
+    [InlineData("alex.turner@northwind-support.example")]
+    [InlineData("ALEX.TURNER@NORTHWIND-SUPPORT.EXAMPLE")]
+    [InlineData("Alex.Turner@Northwind-Support.Example")]
+    [InlineData("  alex.turner@northwind-support.example  ")]
+    public async Task An_email_is_found_whatever_its_case_and_spacing(string typed)
+    {
+        _db.Add(new Agent("Alex Turner", "alex.turner@northwind-support.example", 10, Now));
+        await _db.SaveChangesAsync();
+
+        var found = await new AgentRepository(_db).GetByEmailAsync(typed, default);
+
+        Assert.Equal("Alex Turner", found?.FullName);
+    }
+
+    [Theory]
+    [InlineData("someone.else@northwind-support.example")]
+    [InlineData("alex.turner@northwind-support.exampl")]
+    [InlineData("")]
+    public async Task An_email_that_belongs_to_nobody_finds_nobody(string typed)
+    {
+        _db.Add(new Agent("Alex Turner", "alex.turner@northwind-support.example", 10, Now));
+        await _db.SaveChangesAsync();
+
+        Assert.Null(await new AgentRepository(_db).GetByEmailAsync(typed, default));
+    }
+
+    [Fact]
+    public async Task The_stored_hash_comes_back_with_the_agent()
+    {
+        var agent = new Agent("Alex Turner", "alex.turner@northwind-support.example", 10, Now);
+        agent.SetPasswordHash("a-stored-hash");
+        _db.Add(agent);
+        await _db.SaveChangesAsync();
+
+        var found = await new AgentRepository(_db).GetByEmailAsync("alex.turner@northwind-support.example", default);
+
+        Assert.Equal("a-stored-hash", found?.PasswordHash);
+    }
+
     private void AddTicket(string reference, Customer customer, Category category, Agent agent, TicketStatus status)
     {
         var ticket = Ticket.Raise(reference, "Something is not working", "A description long enough to be realistic.",

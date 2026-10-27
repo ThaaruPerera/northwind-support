@@ -14,6 +14,18 @@ public sealed class AgentRepository(SupportDbContext db) : IAgentRepository
             .Include(a => a.Specializations)
             .FirstOrDefaultAsync(a => a.Id == id, ct);
 
+    public Task<Agent?> GetByEmailAsync(string email, CancellationToken ct)
+    {
+        var normalised = email.Trim().ToLowerInvariant();
+
+        // Lowered on both sides, so it is case insensitive on any database and not only where the
+        // column's collation happens to be. With a handful of agents the index is not missed; a large
+        // directory would store the lowered email in a column of its own.
+        return db.Set<Agent>()
+            .AsNoTracking()
+            .FirstOrDefaultAsync(a => a.Email.ToLower() == normalised, ct);
+    }
+
     public async Task<IReadOnlyList<AgentCandidate>> GetAssignmentCandidatesAsync(CancellationToken ct) =>
         await db.Set<Agent>()
             .AsNoTracking()

@@ -35,4 +35,13 @@ public sealed class TicketDetailDto
 
     /// <summary>Derived from the dates above; never stored.</summary>
     public SlaStatus SlaStatus { get; set; }
+
+    /// <summary>Why nobody owns the ticket. Null while it has an owner.</summary>
+    public string? UnassignedReason { get; set; }
+
+    /// <summary>
+    /// The reasons behind the decisions made when the ticket was raised. Only filled in the
+    /// response to creating a ticket; reading one later returns null.
+    /// </summary>
+    public TriageDto? Triage { get; set; }
 }

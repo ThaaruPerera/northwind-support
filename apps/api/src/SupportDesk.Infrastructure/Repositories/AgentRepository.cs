@@ -1,5 +1,6 @@
 using Microsoft.EntityFrameworkCore;
 using SupportDesk.Domain.Aggregates.Agents;
+using SupportDesk.Domain.Aggregates.Tickets;
 using SupportDesk.Domain.Repositories;
 using SupportDesk.Infrastructure.Data;
 
@@ -12,4 +13,17 @@ public sealed class AgentRepository(SupportDbContext db) : IAgentRepository
         db.Set<Agent>()
             .Include(a => a.Specializations)
             .FirstOrDefaultAsync(a => a.Id == id, ct);
+
+    public async Task<IReadOnlyList<AgentCandidate>> GetAssignmentCandidatesAsync(CancellationToken ct) =>
+        await db.Set<Agent>()
+            .AsNoTracking()
+            .OrderBy(a => a.Id)
+            .Select(a => new AgentCandidate(
+                a.Id,
+                a.FullName,
+                a.IsActive,
+                a.MaxOpenTickets,
+                db.Set<Ticket>().Where(Ticket.IsOpenExpression).Count(t => t.AssignedAgentId == a.Id),
+                a.Specializations.Select(s => s.CategoryId).ToList()))
+            .ToListAsync(ct);
 }

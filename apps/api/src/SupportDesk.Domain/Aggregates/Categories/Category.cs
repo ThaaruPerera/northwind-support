@@ -39,4 +39,7 @@ public sealed class Category : AggregateRoot
     /// reporter asked for.
     /// </summary>
     public bool ForcesCriticalPriority { get; private set; }
+
+    public CategoryRequirement ToRequirement() =>
+        new(Id, Name, RequiresSpecialist, ForcesCriticalPriority);
 }

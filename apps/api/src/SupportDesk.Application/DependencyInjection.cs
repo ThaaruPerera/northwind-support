@@ -10,6 +10,7 @@ using SupportDesk.Application.Features.Tickets.Commands.RaiseTicket;
 using SupportDesk.Application.Features.Tickets.Queries.GetTicket;
 using SupportDesk.Application.Features.Tickets.Queries.SearchTickets;
 using SupportDesk.Domain.Aggregates.Tickets;
+using SupportDesk.Domain.Services;
 
 namespace SupportDesk.Application;
 
@@ -35,6 +36,7 @@ public static class DependencyInjection
 
         // Pure rule classes, shared by raising and escalating; they hold no state beyond settings.
         services.AddSingleton<SlaPolicy>();
+        services.AddSingleton<TriageService>();
 
         services.AddValidatorsFromAssemblyContaining<RaiseTicketCommandHandler>(ServiceLifetime.Singleton);
 

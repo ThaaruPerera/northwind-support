@@ -3,9 +3,10 @@ using SupportDesk.Domain.Aggregates.Categories;
 namespace SupportDesk.Domain.Repositories;
 
 /// <summary>
-/// Access to <see cref="Category"/> aggregates.
+/// Loads <see cref="Category"/> aggregates.
 /// </summary>
 public interface ICategoryRepository
 {
-    Task<bool> ExistsAsync(int id, CancellationToken ct);
+    /// <summary>The category, or <c>null</c> when there is none with that id.</summary>
+    Task<Category?> GetByIdAsync(int id, CancellationToken ct);
 }

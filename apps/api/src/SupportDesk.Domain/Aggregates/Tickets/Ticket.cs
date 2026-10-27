@@ -1,3 +1,4 @@
+using System.Linq.Expressions;
 using SupportDesk.Domain.Common;
 using SupportDesk.Domain.Exceptions;
 
@@ -58,8 +59,15 @@ public sealed class Ticket : AggregateRoot
     public bool IsOpen => Status is not (TicketStatus.Resolved or TicketStatus.Closed);
 
     /// <summary>
+    /// <see cref="IsOpen"/> as an expression, so a query can ask the database the same question.
+    /// Counting an agent's open tickets uses this, so "open" is defined once.
+    /// </summary>
+    public static Expression<Func<Ticket, bool>> IsOpenExpression { get; } =
+        ticket => ticket.Status != TicketStatus.Resolved && ticket.Status != TicketStatus.Closed;
+
+    /// <summary>
     /// Raises a new ticket for a customer. It starts as <see cref="TicketStatus.New"/>, with no
-    /// owner and no due date.
+    /// owner and no due date until <see cref="ApplyTriage"/> says otherwise.
     /// </summary>
     public static Ticket Raise(
         string reference,
@@ -87,6 +95,18 @@ public sealed class Ticket : AggregateRoot
             UpdatedAtUtc = nowUtc,
             SlaStartedAtUtc = nowUtc
         };
+    }
+
+    /// <summary>
+    /// Records the outcome of triage on a ticket that has just been raised: when it is due and
+    /// who owns it, or why nobody does. The SLA clock starts when the ticket was raised.
+    /// </summary>
+    public void ApplyTriage(DateTime dueAtUtc, int? assignedAgentId, string? unassignedReason, DateTime nowUtc)
+    {
+        DueAtUtc = dueAtUtc;
+        AssignTo(assignedAgentId, nowUtc);
+
+        UnassignedReason = assignedAgentId is null ? unassignedReason : null;
     }
 
     /// <summary>

@@ -39,7 +39,8 @@ public static class AgentSelector
             .ThenBy(c => c.Id)
             .First();
 
-        var pool = category.RequiresSpecialist ? $"{category.Name} specialists" : "agents";
+        var noun = category.RequiresSpecialist ? $"{category.Name} specialist" : "agent";
+        var pool = eligible.Count == 1 ? noun : noun + "s";
 
         return new AssignmentDecision(
             chosen,

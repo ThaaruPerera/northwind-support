@@ -3,9 +3,10 @@ using SupportDesk.Domain.Aggregates.Customers;
 namespace SupportDesk.Domain.Repositories;
 
 /// <summary>
-/// Access to <see cref="Customer"/> aggregates.
+/// Loads <see cref="Customer"/> aggregates.
 /// </summary>
 public interface ICustomerRepository
 {
-    Task<bool> ExistsAsync(int id, CancellationToken ct);
+    /// <summary>The customer, or <c>null</c> when there is none with that id.</summary>
+    Task<Customer?> GetByIdAsync(int id, CancellationToken ct);
 }

@@ -76,7 +76,8 @@ public sealed class TicketQueries(SupportDbContext db, IClock clock, SlaSettings
                 DueAtUtc = x.Ticket.DueAtUtc,
                 ResolvedAtUtc = x.Ticket.ResolvedAtUtc,
                 SlaStatus = SlaEvaluator.Evaluate(
-                    x.Ticket.DueAtUtc, x.Ticket.ResolvedAtUtc, now, x.Ticket.SlaStartedAtUtc, sla.AtRiskThresholdPercent)
+                    x.Ticket.DueAtUtc, x.Ticket.ResolvedAtUtc, now, x.Ticket.SlaStartedAtUtc, sla.AtRiskThresholdPercent),
+                UnassignedReason = x.Ticket.UnassignedReason
             })
             .FirstOrDefaultAsync(ct);
     }

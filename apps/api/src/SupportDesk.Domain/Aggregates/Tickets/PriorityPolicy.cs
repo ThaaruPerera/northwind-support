@@ -11,7 +11,7 @@ public sealed record PriorityDecision(TicketPriority Priority, string Reason);
 /// </summary>
 public static class PriorityPolicy
 {
-    public static PriorityDecision Decide(TicketPriority? requested, Category category)
+    public static PriorityDecision Decide(TicketPriority? requested, CategoryRequirement category)
     {
         if (category.ForcesCriticalPriority)
         {

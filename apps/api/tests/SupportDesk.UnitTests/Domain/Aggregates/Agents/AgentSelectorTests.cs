@@ -11,11 +11,11 @@ public class AgentSelectorTests
     private const int Outage = 4;
     private const int Security = 5;
 
-    private static readonly CategoryRequirement GeneralCategory = new(General, "General", false);
-    private static readonly CategoryRequirement BillingCategory = new(Billing, "Billing", true);
-    private static readonly CategoryRequirement TechnicalCategory = new(Technical, "Technical", false);
-    private static readonly CategoryRequirement OutageCategory = new(Outage, "Outage", true);
-    private static readonly CategoryRequirement SecurityCategory = new(Security, "Security", true);
+    private static readonly CategoryRequirement GeneralCategory = new(General, "General", false, false);
+    private static readonly CategoryRequirement BillingCategory = new(Billing, "Billing", true, false);
+    private static readonly CategoryRequirement TechnicalCategory = new(Technical, "Technical", false, false);
+    private static readonly CategoryRequirement OutageCategory = new(Outage, "Outage", true, true);
+    private static readonly CategoryRequirement SecurityCategory = new(Security, "Security", true, true);
 
     // The seed table from the assignment: id, name, active, open, limit, specialisations.
     private static readonly AgentCandidate Alex = Agent(1, "Alex Turner", true, 5, 10, General, Technical);
@@ -106,6 +106,14 @@ public class AgentSelectorTests
         var decision = AgentSelector.Select(Team, OutageCategory);
 
         Assert.Equal("Ben Osei has the fewest open tickets (3) of 2 eligible Outage specialists.", decision.Reason);
+    }
+
+    [Fact]
+    public void A_single_eligible_agent_is_described_in_the_singular()
+    {
+        var decision = AgentSelector.Select([Sara, Marcus], BillingCategory);
+
+        Assert.Equal("Sara Lindqvist has the fewest open tickets (2) of 1 eligible Billing specialist.", decision.Reason);
     }
 
     [Fact]

@@ -5,8 +5,8 @@ namespace SupportDesk.UnitTests.Domain.Aggregates.Tickets;
 
 public class PriorityPolicyTests
 {
-    private static readonly Category Ordinary = new("General", requiresSpecialist: false, forcesCriticalPriority: false);
-    private static readonly Category Security = new("Security", requiresSpecialist: true, forcesCriticalPriority: true);
+    private static readonly CategoryRequirement Ordinary = new(1, "General", false, false);
+    private static readonly CategoryRequirement Security = new(5, "Security", true, true);
 
     [Theory]
     [InlineData(TicketPriority.Low)]
@@ -45,8 +45,8 @@ public class PriorityPolicyTests
     [Fact]
     public void The_rule_follows_the_flag_not_the_name()
     {
-        var renamed = new Category("Incident response", requiresSpecialist: false, forcesCriticalPriority: true);
-        var lookalike = new Category("Security", requiresSpecialist: false, forcesCriticalPriority: false);
+        var renamed = new CategoryRequirement(9, "Incident response", false, true);
+        var lookalike = new CategoryRequirement(8, "Security", false, false);
 
         Assert.Equal(TicketPriority.Critical, PriorityPolicy.Decide(TicketPriority.Low, renamed).Priority);
         Assert.Equal(TicketPriority.Low, PriorityPolicy.Decide(TicketPriority.Low, lookalike).Priority);

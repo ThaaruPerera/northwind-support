@@ -5,8 +5,12 @@ using SupportDesk.Infrastructure.Data;
 
 namespace SupportDesk.Infrastructure.Repositories;
 
+/// <summary>
+/// Loads <see cref="Category"/> aggregates. Categories are read-only reference data to the
+/// commands, so they are not tracked.
+/// </summary>
 public sealed class CategoryRepository(SupportDbContext db) : ICategoryRepository
 {
-    public Task<bool> ExistsAsync(int id, CancellationToken ct) =>
-        db.Set<Category>().AsNoTracking().AnyAsync(c => c.Id == id, ct);
+    public Task<Category?> GetByIdAsync(int id, CancellationToken ct) =>
+        db.Set<Category>().AsNoTracking().FirstOrDefaultAsync(c => c.Id == id, ct);
 }

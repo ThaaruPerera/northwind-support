@@ -34,6 +34,51 @@ public class TicketTests
     }
 
     [Fact]
+    public void ApplyTriage_RecordsTheDueDateAndTheOwner()
+    {
+        var ticket = new TicketBuilder().Build();
+
+        ticket.ApplyTriage(Later, assignedAgentId: 4, unassignedReason: null, FixedClock.DefaultNow);
+
+        Assert.Equal(Later, ticket.DueAtUtc);
+        Assert.Equal(4, ticket.AssignedAgentId);
+        Assert.Null(ticket.UnassignedReason);
+    }
+
+    [Fact]
+    public void ApplyTriage_WithNoOwner_KeepsTheReason()
+    {
+        var ticket = new TicketBuilder().Build();
+
+        ticket.ApplyTriage(Later, assignedAgentId: null, "Every active agent is at their open ticket limit.", FixedClock.DefaultNow);
+
+        Assert.Null(ticket.AssignedAgentId);
+        Assert.Equal("Every active agent is at their open ticket limit.", ticket.UnassignedReason);
+    }
+
+    [Fact]
+    public void ApplyTriage_WithAnOwner_DropsAReasonThatWasPassedIn()
+    {
+        var ticket = new TicketBuilder().Build();
+
+        ticket.ApplyTriage(Later, assignedAgentId: 4, unassignedReason: "stale", FixedClock.DefaultNow);
+
+        Assert.Null(ticket.UnassignedReason);
+    }
+
+    [Fact]
+    public void AssignTo_ClearsTheUnassignedReason()
+    {
+        var ticket = new TicketBuilder().Build();
+        ticket.ApplyTriage(Later, assignedAgentId: null, "Nobody is eligible.", FixedClock.DefaultNow);
+
+        ticket.AssignTo(7, Later);
+
+        Assert.Equal(7, ticket.AssignedAgentId);
+        Assert.Null(ticket.UnassignedReason);
+    }
+
+    [Fact]
     public void ChangeStatus_WhenResolving_StampsResolutionAndUpdateTimes()
     {
         var ticket = new TicketBuilder().WithStatus(TicketStatus.InProgress).Build();

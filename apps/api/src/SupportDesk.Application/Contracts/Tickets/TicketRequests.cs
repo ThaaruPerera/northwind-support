@@ -17,7 +17,7 @@ public sealed record UpdateTicketStatusRequest(TicketStatus Status);
 public sealed record AssignTicketRequest(int? AgentId);
 
 /// <summary>
-/// Escalates a ticket. <paramref name="EscalatedBy"/> is the caller's name until sign-in exists, at
-/// which point it comes from the token and not from the request.
+/// Escalates a ticket. Who is escalating is not part of the request: it is the signed in agent, taken
+/// from their token, so nobody can put another name on the history.
 /// </summary>
-public sealed record EscalateTicketRequest(string Reason, string EscalatedBy);
+public sealed record EscalateTicketRequest(string Reason);

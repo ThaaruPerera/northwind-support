@@ -3,6 +3,7 @@ using SupportDesk.Application.Abstractions;
 using SupportDesk.Application.Contracts.Tickets;
 using SupportDesk.Application.Exceptions;
 using SupportDesk.Application.Features.Tickets.Queries.GetTicket;
+using SupportDesk.Domain.Aggregates.Tickets;
 using SupportDesk.Domain.Repositories;
 using SupportDesk.Domain.Services;
 
@@ -19,17 +20,22 @@ public sealed class EscalateTicketCommandHandler(
     IAgentRepository agents,
     IUnitOfWork unitOfWork,
     IClock clock,
+    ICurrentUser currentUser,
     TriageService triage,
     GetTicketQueryHandler getTicket,
     ITicketQueries ticketQueries,
     ILogger<EscalateTicketCommandHandler> logger)
 {
+    /// <exception cref="AuthenticationFailedException">No agent is signed in, or the agent is no longer active.</exception>
     /// <exception cref="NotFoundException">The ticket does not exist.</exception>
     /// <exception cref="SupportDesk.Domain.Exceptions.BusinessRuleViolationException">
     /// The ticket is Critical, or already Resolved or Closed.
     /// </exception>
     public async Task<EscalationResultDto> HandleAsync(int id, EscalateTicketRequest request, CancellationToken ct)
     {
+        // Who is asking comes first, and from the token: a name in the request would be the caller's word.
+        var actor = await SignedInAgentAsync(ct);
+
         var ticket = await tickets.GetByIdAsync(id, ct) ?? throw new NotFoundException("Ticket", id);
 
         // Refuse before doing any work, so a ticket that cannot be escalated costs one lookup.
@@ -57,7 +63,7 @@ public sealed class EscalateTicketCommandHandler(
             decision.Assignment.Agent?.Id,
             decision.Assignment.Agent is null ? decision.Assignment.Reason : null,
             request.Reason,
-            request.EscalatedBy,
+            ToHistoryName(actor.FullName),
             now);
 
         // The ticket's change and its history row go to the database in one save, or not at all.
@@ -73,4 +79,22 @@ public sealed class EscalateTicketCommandHandler(
 
         return new EscalationResultDto(updated, recorded);
     }
+
+    /// <summary>The agent making the request, looked up again so a deactivated agent cannot act on an old token.</summary>
+    private async Task<Domain.Aggregates.Agents.Agent> SignedInAgentAsync(CancellationToken ct)
+    {
+        var agentId = currentUser.AgentId ?? throw new AuthenticationFailedException(SessionEnded);
+
+        var agent = await agents.GetByIdAsync(agentId, ct);
+
+        return agent is { IsActive: true } ? agent : throw new AuthenticationFailedException(SessionEnded);
+    }
+
+    /// <summary>An agent's name can be longer than the history column allows; shorten it rather than fail.</summary>
+    private static string ToHistoryName(string fullName) =>
+        fullName.Length <= TicketEscalation.EscalatedByMaxLength
+            ? fullName
+            : fullName[..TicketEscalation.EscalatedByMaxLength];
+
+    private const string SessionEnded = "Your session is no longer valid. Sign in again.";
 }

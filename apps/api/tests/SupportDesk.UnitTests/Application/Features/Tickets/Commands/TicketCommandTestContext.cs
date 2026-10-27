@@ -69,9 +69,12 @@ internal sealed class TicketCommandTestContext
 
         TriageService = new TriageService(new SlaPolicy(SlaTestSettings.Default()));
 
+        // By default the signed in agent is Dana, who is active.
+        SignedInAs(SignedInAgentId, new Agent("Dana", "dana@support.test", 10, Clock.UtcNow));
+
         EscalateTicket = new EscalateTicketCommandHandler(
             Tickets.Object, Customers.Object, Categories.Object, Agents.Object, UnitOfWork.Object, Clock,
-            TriageService, getTicket, TicketQueries.Object, NullLogger<EscalateTicketCommandHandler>.Instance);
+            CurrentUser.Object, TriageService, getTicket, TicketQueries.Object, NullLogger<EscalateTicketCommandHandler>.Instance);
 
         ChangeTicketStatus = new ChangeTicketStatusCommandHandler(Tickets.Object, UnitOfWork.Object, Clock, getTicket);
 
@@ -99,6 +102,10 @@ internal sealed class TicketCommandTestContext
     public Mock<IAgentRepository> Agents { get; } = new();
 
     public Mock<IUnitOfWork> UnitOfWork { get; } = new();
+
+    public Mock<ICurrentUser> CurrentUser { get; } = new();
+
+    public const int SignedInAgentId = 7;
 
     public Mock<ITicketQueries> TicketQueries { get; } = new();
 
@@ -143,6 +150,17 @@ internal sealed class TicketCommandTestContext
     /// <summary>Agents the triage rules can choose from. Categories built in tests have id 0.</summary>
     public void TeamIs(params AgentCandidate[] team) =>
         Agents.Setup(a => a.GetAssignmentCandidatesAsync(It.IsAny<CancellationToken>())).ReturnsAsync(team);
+
+    /// <summary>Who the token says is making the request, and what the database knows about them.</summary>
+    public void SignedInAs(int? agentId, Agent? agent)
+    {
+        CurrentUser.SetupGet(c => c.AgentId).Returns(agentId);
+
+        if (agentId is { } id)
+        {
+            Agents.Setup(a => a.GetByIdAsync(id, It.IsAny<CancellationToken>())).ReturnsAsync(agent);
+        }
+    }
 
     public void VerifySaved(Times times) =>
         UnitOfWork.Verify(u => u.SaveChangesAsync(It.IsAny<CancellationToken>()), times);

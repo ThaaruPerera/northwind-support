@@ -7,8 +7,8 @@ public class EscalateTicketRequestValidatorTests
 {
     private readonly EscalateTicketRequestValidator _validator = new();
 
-    private bool IsValid(string? reason, string? by = "Dana") =>
-        _validator.Validate(new EscalateTicketRequest(reason!, by!)).IsValid;
+    private bool IsValid(string? reason) =>
+        _validator.Validate(new EscalateTicketRequest(reason!)).IsValid;
 
     [Theory]
     [InlineData(5)]
@@ -42,27 +42,11 @@ public class EscalateTicketRequestValidatorTests
     public void Padding_does_not_make_a_long_reason_too_long() =>
         Assert.True(IsValid("  " + new string('a', 500) + "  "));
 
-    [Theory]
-    [InlineData(null)]
-    [InlineData("")]
-    [InlineData("   ")]
-    public void A_missing_actor_is_rejected(string? actor) =>
-        Assert.False(IsValid("Customer is waiting", actor));
-
-    [Fact]
-    public void An_actor_name_of_one_hundred_characters_is_accepted() =>
-        Assert.True(IsValid("Customer is waiting", new string('a', 100)));
-
-    [Fact]
-    public void An_actor_name_over_one_hundred_characters_is_rejected() =>
-        Assert.False(IsValid("Customer is waiting", new string('a', 101)));
-
     [Fact]
     public void The_errors_name_the_field_that_failed()
     {
-        var result = _validator.Validate(new EscalateTicketRequest("abc", ""));
+        var result = _validator.Validate(new EscalateTicketRequest("abc"));
 
         Assert.Contains(result.Errors, e => e.PropertyName == "Reason");
-        Assert.Contains(result.Errors, e => e.PropertyName == "EscalatedBy");
     }
 }

@@ -113,9 +113,9 @@ export interface EscalationResult {
   escalation: Escalation;
 }
 
+/** Who is escalating is not sent: the API takes it from the signed in agent's token. */
 export interface EscalatePayload {
   reason: string;
-  escalatedBy: string;
 }
 
 /** Everything the ticket list screen can narrow the results by. */

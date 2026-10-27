@@ -3,17 +3,15 @@ import type { AgentSummary, TicketDetail, TicketPriority } from '../../../types/
 /** The same limits the API enforces, so what the form accepts is what the server accepts. */
 export const REASON_MIN_LENGTH = 5;
 export const REASON_MAX_LENGTH = 500;
-export const ACTOR_MAX_LENGTH = 100;
 
 const priorityOrder: TicketPriority[] = ['Low', 'Medium', 'High', 'Critical'];
 
 export interface EscalationErrors {
   reason?: string;
-  escalatedBy?: string;
 }
 
-/** What is wrong with the input, judged on the trimmed text, as the server does. */
-export function validateEscalation(reason: string, escalatedBy: string): EscalationErrors {
+/** What is wrong with the reason, judged on the trimmed text, as the server does. */
+export function validateEscalation(reason: string): EscalationErrors {
   const errors: EscalationErrors = {};
   const trimmedReason = reason.trim();
 
@@ -23,14 +21,6 @@ export function validateEscalation(reason: string, escalatedBy: string): Escalat
     errors.reason = `The reason must be at least ${REASON_MIN_LENGTH} characters.`;
   } else if (trimmedReason.length > REASON_MAX_LENGTH) {
     errors.reason = `The reason must be at most ${REASON_MAX_LENGTH} characters.`;
-  }
-
-  const trimmedName = escalatedBy.trim();
-
-  if (trimmedName.length === 0) {
-    errors.escalatedBy = 'Who is escalating the ticket is required.';
-  } else if (trimmedName.length > ACTOR_MAX_LENGTH) {
-    errors.escalatedBy = `The name must be at most ${ACTOR_MAX_LENGTH} characters.`;
   }
 
   return errors;
@@ -70,26 +60,4 @@ export function describeAgentChange(from: AgentSummary | null, to: AgentSummary 
   }
 
   return `${from?.fullName ?? 'Unassigned'} → ${to?.fullName ?? 'Unassigned'}`;
-}
-
-const actorNameKey = 'northwind.escalatedBy';
-
-/**
- * The name last used to escalate, so it need not be typed every time. Only a convenience while
- * there is no sign-in: it goes away when the name comes from the token.
- */
-export function loadActorName(): string {
-  try {
-    return window.localStorage.getItem(actorNameKey) ?? '';
-  } catch {
-    return '';
-  }
-}
-
-export function saveActorName(name: string): void {
-  try {
-    window.localStorage.setItem(actorNameKey, name);
-  } catch {
-    // Storage can be blocked or full. Not remembering the name is not worth failing for.
-  }
 }

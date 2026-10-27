@@ -4,13 +4,10 @@ import { ticketsApi } from '../../../api/tickets';
 import { Field } from '../../../components/Field';
 import type { EscalationResult, TicketDetail } from '../../../types/api';
 import {
-  ACTOR_MAX_LENGTH,
   REASON_MAX_LENGTH,
   REASON_MIN_LENGTH,
   escalationBlockedReason,
-  loadActorName,
   nextPriority,
-  saveActorName,
   validateEscalation,
   type EscalationErrors,
 } from '../lib/escalation';
@@ -22,11 +19,11 @@ interface EscalationPanelProps {
 
 /**
  * Raises a ticket's priority one level, with a reason on record. Checks the same rules as the API
- * before calling it, and still shows whatever the API says if it refuses anyway.
+ * before calling it, and still shows whatever the API says if it refuses anyway. Who escalated is
+ * the signed in agent, which the API knows from the token.
  */
 export function EscalationPanel({ ticket, onEscalated }: EscalationPanelProps) {
   const [reason, setReason] = useState('');
-  const [escalatedBy, setEscalatedBy] = useState(loadActorName);
   const [errors, setErrors] = useState<EscalationErrors>({});
   const [isSaving, setIsSaving] = useState(false);
   const [submitError, setSubmitError] = useState<string>();
@@ -37,7 +34,7 @@ export function EscalationPanel({ ticket, onEscalated }: EscalationPanelProps) {
   const submit = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
 
-    const validationErrors = validateEscalation(reason, escalatedBy);
+    const validationErrors = validateEscalation(reason);
     setErrors(validationErrors);
     setSubmitError(undefined);
 
@@ -48,17 +45,13 @@ export function EscalationPanel({ ticket, onEscalated }: EscalationPanelProps) {
     setIsSaving(true);
 
     try {
-      const result = await ticketsApi.escalate(ticket.id, {
-        reason: reason.trim(),
-        escalatedBy: escalatedBy.trim(),
-      });
+      const result = await ticketsApi.escalate(ticket.id, { reason: reason.trim() });
 
-      saveActorName(escalatedBy.trim());
       setReason('');
       onEscalated(result);
     } catch (caught) {
       if (caught instanceof ApiError) {
-        setErrors(fromApiErrors(caught.fieldErrors));
+        setErrors({ reason: caught.fieldErrors.Reason?.[0] });
       }
 
       setSubmitError(toErrorMessage(caught, 'Could not escalate the ticket.'));
@@ -94,23 +87,6 @@ export function EscalationPanel({ ticket, onEscalated }: EscalationPanelProps) {
           )}
         </Field>
 
-        <Field
-          id="escalation-by"
-          label="Your name"
-          error={errors.escalatedBy}
-          hint="Recorded in the escalation history."
-        >
-          {(fieldProps) => (
-            <input
-              {...fieldProps}
-              type="text"
-              value={escalatedBy}
-              maxLength={ACTOR_MAX_LENGTH}
-              onChange={(event) => setEscalatedBy(event.target.value)}
-            />
-          )}
-        </Field>
-
         <div className="button-row">
           <button type="submit" className="button button--primary">
             {isSaving ? 'Escalating...' : target && !blockedReason ? `Escalate to ${target}` : 'Escalate'}
@@ -125,12 +101,4 @@ export function EscalationPanel({ ticket, onEscalated }: EscalationPanelProps) {
       )}
     </form>
   );
-}
-
-/** The API names its fields in PascalCase; the form names them as it holds them. */
-function fromApiErrors(fieldErrors: Record<string, string[]>): EscalationErrors {
-  return {
-    reason: fieldErrors.Reason?.[0],
-    escalatedBy: fieldErrors.EscalatedBy?.[0],
-  };
 }

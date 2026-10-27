@@ -11,34 +11,28 @@ const ben = { id: 2, fullName: 'Ben Osei' };
 
 describe('validateEscalation', () => {
   it.each([5, 6, 499, 500])('accepts a reason of %i characters', (length) => {
-    expect(validateEscalation('a'.repeat(length), 'Dana')).toEqual({});
+    expect(validateEscalation('a'.repeat(length))).toEqual({});
   });
 
-  it.each([0, 1, 4])('rejects a reason of %i characters as too short', (length) => {
-    expect(validateEscalation('a'.repeat(length), 'Dana').reason).toBeDefined();
+  it.each([1, 4])('rejects a reason of %i characters as too short', (length) => {
+    expect(validateEscalation('a'.repeat(length)).reason).toMatch(/at least 5/);
   });
 
   it('rejects a reason of 501 characters as too long', () => {
-    expect(validateEscalation('a'.repeat(501), 'Dana').reason).toMatch(/at most 500/);
+    expect(validateEscalation('a'.repeat(501)).reason).toMatch(/at most 500/);
   });
 
   it('judges the reason on its trimmed text', () => {
-    expect(validateEscalation('   abc   ', 'Dana').reason).toMatch(/at least 5/);
-    expect(validateEscalation(`  ${'a'.repeat(500)}  `, 'Dana')).toEqual({});
+    expect(validateEscalation('   abc   ').reason).toMatch(/at least 5/);
+    expect(validateEscalation(`  ${'a'.repeat(500)}  `)).toEqual({});
   });
 
-  it('asks for a reason when it is blank', () => {
-    expect(validateEscalation('      ', 'Dana').reason).toBe('A reason is required.');
+  it.each(['', '      '])('asks for a reason when it is %j', (reason) => {
+    expect(validateEscalation(reason).reason).toBe('A reason is required.');
   });
 
-  it('requires a name, up to 100 characters', () => {
-    expect(validateEscalation('A fine reason', '  ').escalatedBy).toBeDefined();
-    expect(validateEscalation('A fine reason', 'a'.repeat(100))).toEqual({});
-    expect(validateEscalation('A fine reason', 'a'.repeat(101)).escalatedBy).toBeDefined();
-  });
-
-  it('reports both problems at once', () => {
-    expect(Object.keys(validateEscalation('', ''))).toEqual(['reason', 'escalatedBy']);
+  it('has nothing to say about who is escalating, because the API takes that from the token', () => {
+    expect(Object.keys(validateEscalation(''))).toEqual(['reason']);
   });
 });
 

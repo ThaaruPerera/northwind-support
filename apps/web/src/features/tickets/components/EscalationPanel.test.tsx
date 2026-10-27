@@ -1,6 +1,6 @@
 import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import { ApiError } from '../../../api/client';
 import { ticketsApi } from '../../../api/tickets';
 import { escalation, ticketDetail } from '../../../test/fixtures';
@@ -22,24 +22,13 @@ function result(): EscalationResult {
   };
 }
 
-async function fill(user: ReturnType<typeof userEvent.setup>, reason: string, name = 'Dana') {
-  const nameBox = screen.getByLabelText('Your name');
-  await user.clear(nameBox);
-
-  if (name) {
-    await user.type(nameBox, name);
-  }
-
+async function fill(user: ReturnType<typeof userEvent.setup>, reason: string) {
   if (reason) {
     await user.type(screen.getByLabelText('Reason'), reason);
   }
 }
 
 describe('EscalationPanel', () => {
-  beforeEach(() => {
-    window.localStorage.clear();
-  });
-
   afterEach(() => {
     vi.clearAllMocks();
   });
@@ -71,28 +60,17 @@ describe('EscalationPanel', () => {
     expect(escalate).not.toHaveBeenCalled();
   });
 
-  it('blocks a missing name and never calls the API', async () => {
-    const user = userEvent.setup();
-    render(<EscalationPanel ticket={ticketDetail()} onEscalated={vi.fn()} />);
-
-    await fill(user, 'Customer is waiting', '');
-    await user.click(screen.getByRole('button', { name: 'Escalate to Critical' }));
-
-    expect(screen.getByText('Who is escalating the ticket is required.')).toBeInTheDocument();
-    expect(escalate).not.toHaveBeenCalled();
-  });
-
-  it('sends the trimmed reason and name, and hands the result on', async () => {
+  it('sends only the trimmed reason, and hands the result on', async () => {
     const user = userEvent.setup();
     const onEscalated = vi.fn();
     escalate.mockResolvedValue(result());
     render(<EscalationPanel ticket={ticketDetail()} onEscalated={onEscalated} />);
 
-    await fill(user, '  Customer is waiting  ', ' Dana ');
+    await fill(user, '  Customer is waiting  ');
     await user.click(screen.getByRole('button', { name: 'Escalate to Critical' }));
 
     await waitFor(() => expect(onEscalated).toHaveBeenCalledWith(result()));
-    expect(escalate).toHaveBeenCalledWith(12, { reason: 'Customer is waiting', escalatedBy: 'Dana' });
+    expect(escalate).toHaveBeenCalledWith(12, { reason: 'Customer is waiting' });
     expect(screen.getByLabelText('Reason')).toHaveValue('');
   });
 
@@ -172,19 +150,10 @@ describe('EscalationPanel', () => {
     expect(screen.getByRole('button', { name: 'Escalate to Medium' })).toBeEnabled();
   });
 
-  it('remembers the name for next time', async () => {
-    const user = userEvent.setup();
-    escalate.mockResolvedValue(result());
-    const { unmount } = render(<EscalationPanel ticket={ticketDetail()} onEscalated={vi.fn()} />);
-
-    await fill(user, 'Customer is waiting', 'Dana');
-    await user.click(screen.getByRole('button', { name: 'Escalate to Critical' }));
-    await waitFor(() => expect(escalate).toHaveBeenCalled());
-    unmount();
-
+  it('has no field for a name, because the API knows who is signed in', () => {
     render(<EscalationPanel ticket={ticketDetail()} onEscalated={vi.fn()} />);
 
-    expect(screen.getByLabelText('Your name')).toHaveValue('Dana');
+    expect(screen.queryByLabelText(/name/i)).not.toBeInTheDocument();
   });
 
   it('counts the reason as it is typed', async () => {

@@ -191,11 +191,11 @@ describe('the app when signing in is required', () => {
       await router.navigate('/tickets/12');
 
       // Turned back to the login page, which remembers where they were trying to go.
-      await waitFor(() =>
-        expect(router.state.location.state).toMatchObject({ from: { pathname: '/tickets/12' } }),
-      );
-      expect(router.state.location.pathname).toBe('/login');
-      expect(screen.getByRole('heading', { name: 'Welcome back' })).toBeInTheDocument();
+      await waitFor(() => {
+        expect(router.state.location.pathname).toBe('/login');
+        expect(router.state.location.state).toMatchObject({ from: { pathname: '/tickets/12' } });
+        expect(screen.getByRole('heading', { name: 'Welcome back' })).toBeInTheDocument();
+      });
       expect(callsTo('/api/tickets')).toHaveLength(0);
     });
 

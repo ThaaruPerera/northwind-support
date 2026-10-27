@@ -37,14 +37,11 @@ function renderPage() {
 
 async function submitEscalation(user: ReturnType<typeof userEvent.setup>) {
   await user.type(screen.getByLabelText('Reason'), 'Customer is waiting on this');
-  await user.clear(screen.getByLabelText('Your name'));
-  await user.type(screen.getByLabelText('Your name'), 'Dana');
   await user.click(screen.getByRole('button', { name: 'Escalate to Critical' }));
 }
 
 describe('TicketDetailPage escalation', () => {
   beforeEach(() => {
-    window.localStorage.clear();
     vi.mocked(agentsApi.getAgents).mockResolvedValue([]);
     vi.mocked(categoriesApi.getCategories).mockResolvedValue([]);
     vi.mocked(customersApi.getCustomers).mockResolvedValue([]);
@@ -109,7 +106,6 @@ describe('TicketDetailPage escalation', () => {
     await screen.findByText('This ticket has not been escalated.');
 
     await user.type(screen.getByLabelText('Reason'), 'no');
-    await user.type(screen.getByLabelText('Your name'), 'Dana');
     await user.click(screen.getByRole('button', { name: 'Escalate to Critical' }));
 
     expect(screen.getByText('The reason must be at least 5 characters.')).toBeInTheDocument();

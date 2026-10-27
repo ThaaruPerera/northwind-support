@@ -11,7 +11,7 @@ public class EscalateTicketCommandHandlerTests
 {
     private static readonly DateTime Raised = FixedClock.DefaultNow.AddHours(-6);
 
-    private static readonly EscalateTicketRequest Request = new("Customer is waiting", "Dana");
+    private static readonly EscalateTicketRequest Request = new("Customer is waiting");
 
     /// <summary>A medium ticket owned by agent 4, raised six hours before "now", due after 24 hours.</summary>
     private static Ticket OpenTicket(TicketPriority priority = TicketPriority.Medium, TicketStatus status = TicketStatus.Open)
@@ -175,6 +175,85 @@ public class EscalateTicketCommandHandlerTests
         Assert.Null(ticket.AssignedAgentId);
         Assert.Equal("Away is no longer eligible. There are no active agents.", ticket.UnassignedReason);
         Assert.Null(context.AddedEscalation!.ToAgentId);
+        context.VerifySaved(Times.Once());
+    }
+
+    [Fact]
+    public async Task HandleAsync_RecordsTheSignedInAgentAsWhoEscalated()
+    {
+        var context = new TicketCommandTestContext();
+        context.SignedInAs(TicketCommandTestContext.SignedInAgentId, new Agent("Priya Nair", "priya@support.test", 8, FixedClock.DefaultNow));
+        context.ExistingTicket(OpenTicket());
+
+        await context.EscalateTicket.HandleAsync(0, Request, CancellationToken.None);
+
+        Assert.Equal("Priya Nair", context.AddedEscalation!.EscalatedBy);
+    }
+
+    [Fact]
+    public async Task HandleAsync_WithNobodySignedIn_IsRefusedAndNothingIsSaved()
+    {
+        var context = new TicketCommandTestContext();
+        context.SignedInAs(null, null);
+        var ticket = context.ExistingTicket(OpenTicket());
+
+        await Assert.ThrowsAsync<AuthenticationFailedException>(
+            () => context.EscalateTicket.HandleAsync(0, Request, CancellationToken.None));
+
+        Assert.Equal(TicketPriority.Medium, ticket.Priority);
+        Assert.Null(context.AddedEscalation);
+        context.VerifySaved(Times.Never());
+    }
+
+    [Fact]
+    public async Task HandleAsync_WithADeactivatedAgentHoldingAnOldToken_IsRefused()
+    {
+        var context = new TicketCommandTestContext();
+        var gone = new Agent("Dana", "dana@support.test", 10, FixedClock.DefaultNow);
+        gone.Deactivate();
+        context.SignedInAs(TicketCommandTestContext.SignedInAgentId, gone);
+        context.ExistingTicket(OpenTicket());
+
+        await Assert.ThrowsAsync<AuthenticationFailedException>(
+            () => context.EscalateTicket.HandleAsync(0, Request, CancellationToken.None));
+
+        context.VerifySaved(Times.Never());
+    }
+
+    [Fact]
+    public async Task HandleAsync_WithATokenForAnAgentWhoNoLongerExists_IsRefused()
+    {
+        var context = new TicketCommandTestContext();
+        context.SignedInAs(TicketCommandTestContext.SignedInAgentId, null);
+        context.ExistingTicket(OpenTicket());
+
+        await Assert.ThrowsAsync<AuthenticationFailedException>(
+            () => context.EscalateTicket.HandleAsync(0, Request, CancellationToken.None));
+    }
+
+    [Fact]
+    public async Task HandleAsync_ChecksWhoIsAskingBeforeLookingForTheTicket()
+    {
+        var context = new TicketCommandTestContext();
+        context.SignedInAs(null, null);
+
+        // The ticket does not exist either, but a stranger is told only to sign in.
+        await Assert.ThrowsAsync<AuthenticationFailedException>(
+            () => context.EscalateTicket.HandleAsync(999, Request, CancellationToken.None));
+    }
+
+    [Fact]
+    public async Task HandleAsync_ShortensANameLongerThanTheHistoryColumn()
+    {
+        var context = new TicketCommandTestContext();
+        context.SignedInAs(
+            TicketCommandTestContext.SignedInAgentId,
+            new Agent(new string('N', 150), "long@support.test", 10, FixedClock.DefaultNow));
+        context.ExistingTicket(OpenTicket());
+
+        await context.EscalateTicket.HandleAsync(0, Request, CancellationToken.None);
+
+        Assert.Equal(100, context.AddedEscalation!.EscalatedBy.Length);
         context.VerifySaved(Times.Once());
     }
 }

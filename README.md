@@ -87,9 +87,10 @@ Both pass on a clean checkout and neither needs a database.
 
 | Endpoint | Description |
 | --- | --- |
-| `GET /api/tickets` | Paged list with `search`, `status`, `priority`, `categoryId`, `customerId`, `assignedAgentId`, `unassignedOnly`, `sortBy`, `sortDirection`. All filters are applied in the database. |
+| `GET /api/tickets` | Paged list with `search`, `status`, `priority`, `categoryId`, `customerId`, `assignedAgentId`, `unassignedOnly`, `slaStatus`, `sortBy`, `sortDirection`. All filters are applied in the database. |
 | `GET /api/tickets/{id}` | One ticket |
-| `POST /api/tickets` | Create a ticket |
+| `POST /api/tickets` | Create a ticket. Triage decides priority, due date and owner, and the response explains each in `triage`. Always `201`, even when unassigned. |
+| `POST /api/tickets/{id}/escalate` · `GET /api/tickets/{id}/escalations` | Escalate one level with a reason / the history, newest first |
 | `PATCH /api/tickets/{id}/status` · `/assignment` | Change status / assignee |
 | `GET /api/customers` · `/api/agents` · `/api/categories` | Reference data |
 
@@ -101,7 +102,7 @@ and 40 tickets across every status, priority and SLA state.
 ## Task 1: defect and filtering
 
 **DEFECT-117, root cause.** The effect in `useTicketList` that fetches tickets only depended on
-`search`, `page` and `pageSize`, so changing any other filter never refetched; the next search
+`search`, `page` and `pageSize`, so changing any other filter never refetched, the next search
 then sent the old filters along with it. The request now depends on every filter, and only the
 search text is debounced (300 ms). To verify: `npm test --workspace apps/web` (the regression
 tests fail on the original hook), or watch the Network tab while changing Status.
@@ -112,6 +113,46 @@ reference or customer name with `LIKE` (wildcards escaped, trimmed, blank ignore
 EF command log: the same `WHERE` is in the count and the page query. A new filter is one more
 `if` in `ApplyFilters`. Assumptions: `assignedAgentId` plus `unassignedOnly` returns nothing (AND);
 no index added, since the filtered columns already have one and a leading `%` search can't use one.
+
+## Task 2: triage, escalation and SLA
+
+**Rules as understood.** One `TriageService` runs the same three rules for create and escalate:
+priority (`PriorityPolicy`), window and due date (`SlaPolicy`), owner (`AgentSelector`). Priority is
+the one requested, Medium by default, and Critical when the category's `ForcesCriticalPriority`
+flag is set (no category name is in the code). Windows come from the validated `Sla` config, and
+Premium gets half, never under 1 hour. An owner is active, specialised where required, strictly
+under their limit, with the fewest open tickets (lowest id on a tie). Nobody eligible gives `201`,
+unassigned, with the reason. Escalation raises one level (BR-7), restarts the window from now and
+keeps the agent if still eligible. At risk means 25% or less of the window left, inclusive.
+
+**Decisions.**
+- `SlaStartedAtUtc`, set on create and on escalate, is where the window starts. Rejected: counting
+  from creation, which marks a just escalated ticket At risk straight away.
+- The unassigned reason has its own column and is cleared when an agent is assigned. Rejected:
+  working it out again on read, when the team has changed.
+- An agent at their limit keeps a ticket they already hold, as it is already in their count.
+- Rules are small pure classes, with interfaces only at the repositories and the clock. Rejected:
+  rules inside the handlers, which would be written twice.
+- `slaStatus` is filtered in SQL, never in C#. A test requires it to agree with `SlaEvaluator`.
+- `escalatedBy` is a typed name until Task 3 takes it from the token.
+
+**Patterns.** Typed settings validated at startup (windows change without code); small policy
+classes composed by one service (each tested alone, shared by create and escalate); one shared
+predicate for the SQL SLA filter.
+
+**Database.** Migration `AddEscalationsAndSlaClock` adds `TicketEscalations`, `Tickets.SlaStartedAtUtc`
+(backfilled from `CreatedAtUtc`) and `Tickets.UnassignedReason`. One deliberate index, on
+`(TicketId, EscalatedAtUtc desc)`: history is read per ticket, newest first, and it covers the
+foreign key. EF also added two agent foreign key indexes that no query uses. `db/*.sql` carry the
+new columns.
+
+**Testing.** `npm test` runs xUnit (rules on a fixed clock with boundaries, queries on SQLite) and
+Vitest. Not covered: SQL Server itself in the test run (the real `DATEDIFF` was checked by hand)
+and browser end to end.
+
+**Known limitations.** No concurrency control: two creates can pick the same agent past their
+limit, and two escalations can both succeed. The SQL filter uses whole seconds, so a ticket within
+a second of the 25% line may differ from its badge. Triage reasons come back on create only.
 
 ## Troubleshooting
 

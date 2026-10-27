@@ -19,6 +19,12 @@ describe('TicketTable', () => {
               assignedAgent: null,
               slaStatus: 'WithinSla',
             }),
+            ticketListItem({
+              id: 22,
+              reference: 'TCK-0022',
+              assignedAgent: { id: 5, fullName: 'Marcus Doyle' },
+              slaStatus: 'AtRisk',
+            }),
           ]}
         />
       </MemoryRouter>,
@@ -31,5 +37,8 @@ describe('TicketTable', () => {
     // An unassigned ticket says so, rather than showing an empty cell.
     expect(screen.getByText('Unassigned')).toBeInTheDocument();
     expect(screen.getByText('Within SLA')).toBeInTheDocument();
+
+    // A ticket close to its due date says so in words, not in a fallback label.
+    expect(screen.getByText('At risk')).toBeInTheDocument();
   });
 });

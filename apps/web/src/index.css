@@ -291,14 +291,14 @@ textarea[aria-invalid='true'] {
   color: var(--colour-muted);
 }
 
-.sla-cell {
+.sla-indicator {
   display: flex;
   flex-direction: column;
   align-items: flex-start;
   gap: 2px;
 }
 
-.sla-cell__due {
+.sla-indicator__due {
   font-size: 0.8rem;
   color: var(--colour-muted);
 }
@@ -442,4 +442,59 @@ textarea[aria-invalid='true'] {
   clip: rect(0, 0, 0, 0);
   white-space: nowrap;
   border: 0;
+}
+
+.form__fieldset {
+  margin: 0;
+  padding: 0;
+  border: 0;
+  min-width: 0;
+}
+
+.history {
+  display: grid;
+  gap: var(--gap);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.history__item {
+  padding-top: var(--gap);
+  border-top: 1px solid var(--colour-border);
+}
+
+.history__item:first-child {
+  padding-top: 0;
+  border-top: none;
+}
+
+.history__change {
+  margin: 0 0 6px;
+}
+
+.history__details {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 4px var(--gap);
+  margin: 0 0 6px;
+}
+
+.history__details dt {
+  font-size: 0.75rem;
+  color: var(--colour-muted);
+}
+
+.history__details dd {
+  margin: 0;
+}
+
+.history__reason {
+  margin: 0 0 4px;
+}
+
+.history__meta {
+  margin: 0;
+  font-size: 0.8rem;
+  color: var(--colour-muted);
 }

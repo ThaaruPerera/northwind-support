@@ -81,6 +81,32 @@ export interface TicketDetail {
   slaStatus: SlaStatus;
 }
 
+/** One row of a ticket's escalation history. */
+export interface Escalation {
+  id: number;
+  ticketId: number;
+  fromPriority: TicketPriority;
+  toPriority: TicketPriority;
+  fromAgent: AgentSummary | null;
+  toAgent: AgentSummary | null;
+  fromDueAtUtc: string | null;
+  toDueAtUtc: string;
+  reason: string;
+  escalatedBy: string;
+  escalatedAtUtc: string;
+}
+
+/** The ticket after it was escalated, and the history row that recorded it. */
+export interface EscalationResult {
+  ticket: TicketDetail;
+  escalation: Escalation;
+}
+
+export interface EscalatePayload {
+  reason: string;
+  escalatedBy: string;
+}
+
 /** Everything the ticket list screen can narrow the results by. */
 export interface TicketFilters {
   search: string;

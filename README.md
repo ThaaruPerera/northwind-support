@@ -65,6 +65,9 @@ credentials.**
 **Signing in:** `alex.turner@northwind-support.example` with `Dev_Only_Password1` (every seeded agent
 uses that password; it is a local fixture). See [Task 3](#task-3-login-and-authentication).
 
+**Or in Docker:** `docker compose up --build` runs SQL Server and the API on http://localhost:5080. See
+[Task 4](#task-4-docker).
+
 **Visual Studio 2026:** run `npm run db:up`, open `SupportDesk.sln`, set
 **SupportDesk.Presentation** as the startup project, and press F5 on the **https** profile.
 
@@ -85,6 +88,7 @@ Both pass on a clean checkout and neither needs a database.
 | `npm run build` | Build both |
 | `npm run lint` / `typecheck` / `format` | Web lint and types / `dotnet format` |
 | `npm run ef -- migrations add <Name>` | Add an EF Core migration |
+| `docker compose up --build` | SQL Server and the API in Docker, migrated and seeded |
 
 ## API at a glance
 
@@ -97,8 +101,9 @@ Both pass on a clean checkout and neither needs a database.
 | `POST /api/tickets/{id}/escalate` · `GET /api/tickets/{id}/escalations` | Escalate one level with a reason / the history, newest first |
 | `PATCH /api/tickets/{id}/status` · `/assignment` | Change status / assignee |
 | `GET /api/customers` · `/api/agents` · `/api/categories` | Reference data |
+| `GET /health` | Whether the database can be reached (`200` or `503`). Open without a token. |
 
-Every other endpoint needs `Authorization: Bearer <token>`.
+Only login and `/health` are open. Every other endpoint needs `Authorization: Bearer <token>`.
 Errors are `ProblemDetails`: `400` validation, `401` no valid token, `404` not found, `409` conflict or
 business rule.
 
@@ -198,6 +203,38 @@ rotated, HTTPS only, lockout and rate limiting on login, and an agent check on e
 **Known limitations.** A deactivated agent's token still opens ordinary endpoints until it expires
 (`me`, escalation and new sign ins refuse them). No lockout or rate limiting, refresh tokens,
 revocation or roles: every signed in agent can do everything.
+
+## Task 4: Docker
+
+**Run it.** `docker compose up --build` starts SQL Server and the API on http://localhost:5080 (`/swagger`,
+`/health`), migrated and seeded. Sign in as Alex with `Dev_Only_Password1`. To use the web app against the
+container: `VITE_API_PROXY_TARGET=http://localhost:5080 npm run web`.
+
+**The image** (`apps/api/Dockerfile`, built from the repository root) restores before it copies the source,
+so the package download is cached, and runs as the non-root `app` user on HTTP 8080 with no certificates of
+its own. Nothing is baked in: the connection string, `Jwt__SigningKey`, `ASPNETCORE_ENVIRONMENT` and the two
+`Database__` switches are run-time settings, listed in `.env.example`.
+
+**Demo versus production.** Compose defaults to `Development`, a placeholder `Jwt__SigningKey` and demo
+seeding on, **for the demo only**. For production set `ASPNETCORE_ENVIRONMENT=Production` and a real
+`Jwt__SigningKey`; the API refuses to start without one. The demo password `Dev_Only_Password1` is a public
+fixture, compiled into the image and used only when `Database__SeedDemoData` is on. Before production,
+demo seeding would be off and any initial credentials would come from run-time configuration.
+
+**Migrations in production** would run as a separate step before the new version starts, for example an EF
+migrations bundle in a release job with its own connection string, with `Database__MigrateOnStartup` off.
+Otherwise instances starting together race to migrate, the API's login needs the right to change the
+schema, and a failed migration takes every instance down instead of stopping the release.
+
+**Verification** (on Colima, not Docker Desktop):
+
+| Check | Result |
+| --- | --- |
+| `docker compose down -v && docker compose up --build --wait` | Healthy in 27 s; `/health` 200; 40 tickets once signed in |
+| Change one `.cs` file, rebuild | Restore steps `CACHED`; 5 s, against about 71 s the first time |
+| Image size | 394 MB, against the SDK image's 1.36 GB (about 29%) |
+| `docker compose exec api whoami` | `app`, not root |
+| `docker compose run --rm --no-deps --entrypoint ls api -la /app`, then a search of every file in it | 53 files; `appsettings.json` is the only settings file; no database password, dev signing key or connection string anywhere. The only hit is the demo password above |
 
 ## Troubleshooting
 

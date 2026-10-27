@@ -87,7 +87,7 @@ Both pass on a clean checkout and neither needs a database.
 
 | Endpoint | Description |
 | --- | --- |
-| `GET /api/tickets` | Paged list with `search`, `status`, `priority`, `categoryId`, `customerId`, `assignedAgentId`, `unassignedOnly`, `sortBy`, `sortDirection`. **Filters are accepted but not applied yet** (Task 1). |
+| `GET /api/tickets` | Paged list with `search`, `status`, `priority`, `categoryId`, `customerId`, `assignedAgentId`, `unassignedOnly`, `sortBy`, `sortDirection`. All filters are applied in the database. |
 | `GET /api/tickets/{id}` | One ticket |
 | `POST /api/tickets` | Create a ticket |
 | `PATCH /api/tickets/{id}/status` · `/assignment` | Change status / assignee |
@@ -97,6 +97,21 @@ Errors are `ProblemDetails`: `400` validation, `404` not found, `409` conflict o
 
 **Seed data:** 5 categories, 6 customers (3 Premium), 6 agents (one inactive, one at their limit)
 and 40 tickets across every status, priority and SLA state.
+
+## Task 1: defect and filtering
+
+**DEFECT-117, root cause.** The effect in `useTicketList` that fetches tickets only depended on
+`search`, `page` and `pageSize`, so changing any other filter never refetched; the next search
+then sent the old filters along with it. The request now depends on every filter, and only the
+search text is debounced (300 ms). To verify: `npm test --workspace apps/web` (the regression
+tests fail on the original hook), or watch the Network tab while changing Status.
+
+**Filtering.** `TicketQueries.ApplyFilters` adds one `.Where` per supplied filter, before the
+count and paging, so `totalCount` and `totalPages` match the filtered set. Search matches title,
+reference or customer name with `LIKE` (wildcards escaped, trimmed, blank ignored). I checked the
+EF command log: the same `WHERE` is in the count and the page query. A new filter is one more
+`if` in `ApplyFilters`. Assumptions: `assignedAgentId` plus `unassignedOnly` returns nothing (AND);
+no index added, since the filtered columns already have one and a leading `%` search can't use one.
 
 ## Troubleshooting
 

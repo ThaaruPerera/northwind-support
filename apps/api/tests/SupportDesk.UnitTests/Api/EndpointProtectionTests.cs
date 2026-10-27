@@ -18,9 +18,9 @@ public class EndpointProtectionTests(ApiFixture api) : IClassFixture<ApiFixture>
 {
     /// <summary>
     /// The only endpoints anyone may call without signing in. Swagger is middleware, not an endpoint, and is
-    /// checked on its own below. <c>/health</c> belongs here once it exists.
+    /// checked on its own below. "ANY" is an endpoint that does not name a method, as the health check does.
     /// </summary>
-    private static readonly string[] OpenOnPurpose = ["POST api/auth/login"];
+    private static readonly string[] OpenOnPurpose = ["POST api/auth/login", "ANY health"];
 
     private sealed record Route(string Method, string Pattern, bool IsOpen)
     {
@@ -39,12 +39,14 @@ public class EndpointProtectionTests(ApiFixture api) : IClassFixture<ApiFixture>
         {
             var methods = endpoint.Metadata.GetMetadata<IHttpMethodMetadata>()?.HttpMethods ?? [];
             var isOpen = endpoint.Metadata.GetMetadata<Microsoft.AspNetCore.Authorization.IAllowAnonymous>() is not null;
+            var pattern = (endpoint.RoutePattern.RawText ?? string.Empty).TrimStart('/');
 
-            return methods.Select(method => new Route(method, endpoint.RoutePattern.RawText ?? string.Empty, isOpen));
+            return (methods.Count > 0 ? methods : ["ANY"]).Select(method => new Route(method, pattern, isOpen));
         })
         .ToList();
 
-    private static HttpRequestMessage Request(Route route) => new(new HttpMethod(route.Method), route.Url);
+    private static HttpRequestMessage Request(Route route) =>
+        new(route.Method == "ANY" ? HttpMethod.Get : new HttpMethod(route.Method), route.Url);
 
     [Fact]
     public void This_test_is_looking_at_the_real_endpoints_and_not_at_an_empty_list()
@@ -63,7 +65,8 @@ public class EndpointProtectionTests(ApiFixture api) : IClassFixture<ApiFixture>
         Assert.Contains("GET api/categories", keys);
         Assert.Contains("GET api/auth/me", keys);
         Assert.Contains("POST api/auth/login", keys);
-        Assert.True(keys.Count >= 12, $"Only {keys.Count} endpoints were found.");
+        Assert.Contains("ANY health", keys);
+        Assert.True(keys.Count >= 13, $"Only {keys.Count} endpoints were found.");
     }
 
     [Fact]

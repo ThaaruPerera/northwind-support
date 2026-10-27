@@ -20,13 +20,22 @@ namespace SupportDesk.UnitTests.Api;
 public sealed class ApiFixture : IAsyncLifetime
 {
     private readonly SqliteConnection _connection = new("DataSource=:memory:");
+    private readonly bool _databaseIsUnreachable;
     private readonly ApiFactory _factory;
 
-    public ApiFixture()
+    public ApiFixture() : this(databaseIsUnreachable: false)
     {
-        _connection.Open();
-        _factory = new ApiFactory(_connection);
     }
+
+    private ApiFixture(bool databaseIsUnreachable)
+    {
+        _databaseIsUnreachable = databaseIsUnreachable;
+        _connection.Open();
+        _factory = new ApiFactory(_connection, databaseIsUnreachable);
+    }
+
+    /// <summary>The same application, but its database is somewhere that cannot be opened, as if the server were gone.</summary>
+    public static ApiFixture WithUnreachableDatabase() => new(databaseIsUnreachable: true);
 
     public IServiceProvider Services => _factory.Services;
 
@@ -34,6 +43,11 @@ public sealed class ApiFixture : IAsyncLifetime
 
     public async Task InitializeAsync()
     {
+        if (_databaseIsUnreachable)
+        {
+            return;
+        }
+
         using var scope = _factory.Services.CreateScope();
         var db = scope.ServiceProvider.GetRequiredService<SupportDbContext>();
         await db.Database.EnsureCreatedAsync();
@@ -83,7 +97,7 @@ public sealed class ApiFixture : IAsyncLifetime
         await action(scope.ServiceProvider.GetRequiredService<SupportDbContext>());
     }
 
-    private sealed class ApiFactory(SqliteConnection connection) : WebApplicationFactory<Program>
+    private sealed class ApiFactory(SqliteConnection connection, bool databaseIsUnreachable) : WebApplicationFactory<Program>
     {
         protected override void ConfigureWebHost(IWebHostBuilder builder)
         {
@@ -109,7 +123,18 @@ public sealed class ApiFixture : IAsyncLifetime
                 }
 
                 // The same context the application uses, written for SQLite, handed out in its place.
-                services.AddSingleton(new DbContextOptionsBuilder<SupportDbContext>().UseSqlite(connection).Options);
+                var options = new DbContextOptionsBuilder<SupportDbContext>();
+
+                if (databaseIsUnreachable)
+                {
+                    options.UseSqlite("Data Source=/no/such/folder/support.db;Mode=ReadWrite");
+                }
+                else
+                {
+                    options.UseSqlite(connection);
+                }
+
+                services.AddSingleton(options.Options);
                 services.AddScoped<SupportDbContext>(provider =>
                     new SqliteSupportDbContext(provider.GetRequiredService<DbContextOptions<SupportDbContext>>()));
             });

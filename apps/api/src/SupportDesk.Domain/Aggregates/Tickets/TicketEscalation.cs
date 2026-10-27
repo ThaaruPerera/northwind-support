@@ -11,6 +11,12 @@ namespace SupportDesk.Domain.Aggregates.Tickets;
 /// </remarks>
 public sealed class TicketEscalation : Entity
 {
+    public const int ReasonMinLength = 5;
+
+    public const int ReasonMaxLength = 500;
+
+    public const int EscalatedByMaxLength = 100;
+
     private TicketEscalation()
     {
         // For EF Core.

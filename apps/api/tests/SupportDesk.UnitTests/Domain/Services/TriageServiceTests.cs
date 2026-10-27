@@ -64,4 +64,66 @@ public class TriageServiceTests
         Assert.Equal(TicketPriority.Critical, decision.Priority.Priority);
         Assert.Equal(Now.AddHours(4), decision.DueAtUtc);
     }
+
+    public class OnEscalation
+    {
+        private static readonly TriageService Triage = new(new SlaPolicy(SlaTestSettings.Default()));
+
+        [Theory]
+        [InlineData(TicketPriority.Low, TicketPriority.Medium, 24)]
+        [InlineData(TicketPriority.Medium, TicketPriority.High, 8)]
+        [InlineData(TicketPriority.High, TicketPriority.Critical, 4)]
+        public void The_priority_goes_up_one_level_and_the_window_is_the_new_priorities(
+            TicketPriority from, TicketPriority to, double hours)
+        {
+            var decision = Triage.Escalate(from, General, CustomerTier.Standard, null, [Generalist], Now);
+
+            Assert.Equal(to, decision.Priority);
+            Assert.Equal(TimeSpan.FromHours(hours), decision.Window.Duration);
+        }
+
+        [Fact]
+        public void The_due_date_counts_from_the_moment_of_escalation_not_from_creation()
+        {
+            var decision = Triage.Escalate(TicketPriority.Medium, General, CustomerTier.Standard, null, [Generalist], Now);
+
+            Assert.Equal(Now.AddHours(8), decision.DueAtUtc);
+        }
+
+        [Fact]
+        public void A_premium_customer_gets_half_of_the_new_window()
+        {
+            var decision = Triage.Escalate(TicketPriority.Medium, General, CustomerTier.Premium, null, [Generalist], Now);
+
+            Assert.Equal(Now.AddHours(4), decision.DueAtUtc);
+        }
+
+        [Fact]
+        public void The_current_agent_keeps_the_ticket_while_still_eligible()
+        {
+            var other = new AgentCandidate(2, "Free", true, 10, 0, [1]);
+
+            var decision = Triage.Escalate(TicketPriority.Medium, General, CustomerTier.Standard, Generalist.Id, [Generalist, other], Now);
+
+            Assert.Equal(Generalist.Id, decision.Assignment.Agent?.Id);
+        }
+
+        [Fact]
+        public void An_agent_who_is_no_longer_eligible_is_replaced()
+        {
+            var away = Generalist with { IsActive = false };
+            var other = new AgentCandidate(2, "Free", true, 10, 0, [1]);
+
+            var decision = Triage.Escalate(TicketPriority.Medium, General, CustomerTier.Standard, away.Id, [away, other], Now);
+
+            Assert.Equal(other.Id, decision.Assignment.Agent?.Id);
+        }
+
+        [Fact]
+        public void A_critical_ticket_has_nowhere_to_go()
+        {
+            Assert.Throws<InvalidOperationException>(
+                () => Triage.Escalate(TicketPriority.Critical, General, CustomerTier.Standard, null, [Generalist], Now));
+        }
+    }
 }

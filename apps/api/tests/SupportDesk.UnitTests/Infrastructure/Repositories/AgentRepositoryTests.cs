@@ -1,5 +1,3 @@
-using Microsoft.Data.Sqlite;
-using Microsoft.EntityFrameworkCore;
 using SupportDesk.Domain.Aggregates.Agents;
 using SupportDesk.Domain.Aggregates.Categories;
 using SupportDesk.Domain.Aggregates.Customers;
@@ -15,22 +13,11 @@ public sealed class AgentRepositoryTests : IDisposable
 {
     private static readonly DateTime Now = FixedClock.DefaultNow;
 
-    private readonly SqliteConnection _connection = new("DataSource=:memory:");
-    private readonly SupportDbContext _db;
+    private readonly SqliteTestDatabase _database = new();
 
-    public AgentRepositoryTests()
-    {
-        _connection.Open();
+    private SupportDbContext _db => _database.Db;
 
-        _db = new SupportDbContext(new DbContextOptionsBuilder<SupportDbContext>().UseSqlite(_connection).Options);
-        _db.Database.EnsureCreated();
-    }
-
-    public void Dispose()
-    {
-        _db.Dispose();
-        _connection.Dispose();
-    }
+    public void Dispose() => _database.Dispose();
 
     [Fact]
     public async Task Candidates_carry_the_open_ticket_count_the_limit_and_the_specialisations()

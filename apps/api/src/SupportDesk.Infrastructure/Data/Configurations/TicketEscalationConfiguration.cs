@@ -11,10 +11,6 @@ namespace SupportDesk.Infrastructure.Data.Configurations;
 /// </remarks>
 public sealed class TicketEscalationConfiguration : IEntityTypeConfiguration<TicketEscalation>
 {
-    public const int ReasonMaxLength = 500;
-
-    public const int EscalatedByMaxLength = 100;
-
     public void Configure(EntityTypeBuilder<TicketEscalation> builder)
     {
         builder.ToTable("TicketEscalations", t =>
@@ -29,9 +25,9 @@ public sealed class TicketEscalationConfiguration : IEntityTypeConfiguration<Tic
 
         builder.Property(e => e.ToPriority).HasConversion<int>();
 
-        builder.Property(e => e.Reason).HasMaxLength(ReasonMaxLength).IsRequired();
+        builder.Property(e => e.Reason).HasMaxLength(TicketEscalation.ReasonMaxLength).IsRequired();
 
-        builder.Property(e => e.EscalatedBy).HasMaxLength(EscalatedByMaxLength).IsRequired();
+        builder.Property(e => e.EscalatedBy).HasMaxLength(TicketEscalation.EscalatedByMaxLength).IsRequired();
 
         builder.Property(e => e.FromDueAtUtc).HasColumnType("datetime2(3)");
 

@@ -3,6 +3,7 @@ using SupportDesk.Application.Abstractions;
 using SupportDesk.Application.Contracts.Tickets;
 using SupportDesk.Application.Features.Tickets.Commands.AssignTicket;
 using SupportDesk.Application.Features.Tickets.Commands.ChangeTicketStatus;
+using SupportDesk.Application.Features.Tickets.Commands.EscalateTicket;
 using SupportDesk.Application.Features.Tickets.Commands.RaiseTicket;
 using SupportDesk.Application.Features.Tickets.Queries.GetTicket;
 using SupportDesk.Domain.Aggregates.Agents;
@@ -39,6 +40,16 @@ internal sealed class TicketCommandTestContext
             .Callback<Ticket, CancellationToken>((ticket, _) => AddedTicket = ticket)
             .Returns(Task.CompletedTask);
 
+        Tickets.Setup(t => t.AddEscalationAsync(It.IsAny<TicketEscalation>(), It.IsAny<CancellationToken>()))
+            .Callback<TicketEscalation, CancellationToken>((escalation, _) => AddedEscalation = escalation)
+            .Returns(Task.CompletedTask);
+
+        // The history row as it reads back once saved. Rows built in tests are never given an id.
+        TicketQueries.Setup(q => q.GetEscalationsAsync(It.IsAny<int>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync([new EscalationDto(
+                0, 41, TicketPriority.Medium, TicketPriority.High, null, null, null,
+                FixedClock.DefaultNow, "Customer is waiting", "Dana", FixedClock.DefaultNow)]);
+
         // Every command returns the ticket as re-read once its change has been saved.
         TicketQueries.Setup(q => q.GetDetailAsync(It.IsAny<int>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync(new TicketDetailDto
@@ -55,6 +66,12 @@ internal sealed class TicketCommandTestContext
             Tickets.Object, Customers.Object, Categories.Object, Agents.Object, UnitOfWork.Object, Clock,
             new TriageService(new SlaPolicy(SlaTestSettings.Default())), getTicket,
             NullLogger<RaiseTicketCommandHandler>.Instance);
+
+        TriageService = new TriageService(new SlaPolicy(SlaTestSettings.Default()));
+
+        EscalateTicket = new EscalateTicketCommandHandler(
+            Tickets.Object, Customers.Object, Categories.Object, Agents.Object, UnitOfWork.Object, Clock,
+            TriageService, getTicket, TicketQueries.Object, NullLogger<EscalateTicketCommandHandler>.Instance);
 
         ChangeTicketStatus = new ChangeTicketStatusCommandHandler(Tickets.Object, UnitOfWork.Object, Clock, getTicket);
 
@@ -87,7 +104,11 @@ internal sealed class TicketCommandTestContext
 
     public FixedClock Clock { get; } = new();
 
+    public TriageService TriageService { get; }
+
     public RaiseTicketCommandHandler RaiseTicket { get; }
+
+    public EscalateTicketCommandHandler EscalateTicket { get; }
 
     public ChangeTicketStatusCommandHandler ChangeTicketStatus { get; }
 
@@ -95,6 +116,8 @@ internal sealed class TicketCommandTestContext
 
     /// <summary>The ticket handed to the repository by the last create call.</summary>
     public Ticket? AddedTicket { get; private set; }
+
+    public TicketEscalation? AddedEscalation { get; private set; }
 
     /// <summary>Makes <see cref="ITicketRepository.GetByIdAsync"/> return this ticket.</summary>
     public Ticket ExistingTicket(Ticket ticket)

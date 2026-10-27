@@ -1,5 +1,3 @@
-using Microsoft.Data.Sqlite;
-using Microsoft.EntityFrameworkCore;
 using SupportDesk.Application.Contracts.Common;
 using SupportDesk.Application.Contracts.Tickets;
 using SupportDesk.Domain.Aggregates.Agents;
@@ -20,8 +18,7 @@ public sealed class TicketQueriesFilterTests : IDisposable
 {
     private static readonly DateTime Now = FixedClock.DefaultNow;
 
-    private readonly SqliteConnection _connection = new("DataSource=:memory:");
-    private readonly SupportDbContext _db;
+    private readonly SqliteTestDatabase _database = new();
     private readonly TicketQueries _queries;
 
     private Customer _contoso = null!;
@@ -33,23 +30,14 @@ public sealed class TicketQueriesFilterTests : IDisposable
 
     public TicketQueriesFilterTests()
     {
-        _connection.Open();
-
-        _db = new SupportDbContext(new DbContextOptionsBuilder<SupportDbContext>()
-            .UseSqlite(_connection)
-            .Options);
-        _db.Database.EnsureCreated();
-
         Seed();
 
         _queries = new TicketQueries(_db, new FixedClock(), SlaTestSettings.Default());
     }
 
-    public void Dispose()
-    {
-        _db.Dispose();
-        _connection.Dispose();
-    }
+    private SupportDbContext _db => _database.Db;
+
+    public void Dispose() => _database.Dispose();
 
     [Fact]
     public async Task No_filters_returns_every_ticket()

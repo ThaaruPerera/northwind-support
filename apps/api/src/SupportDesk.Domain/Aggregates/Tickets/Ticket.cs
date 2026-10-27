@@ -110,6 +110,67 @@ public sealed class Ticket : AggregateRoot
     }
 
     /// <summary>
+    /// Says no to an escalation that cannot happen, and says which rule it broke.
+    /// </summary>
+    /// <exception cref="BusinessRuleViolationException">The ticket is finished, or already Critical.</exception>
+    public void EnsureCanBeEscalated()
+    {
+        if (!IsOpen)
+        {
+            throw new BusinessRuleViolationException(
+                $"Ticket {Reference} is {Status} and cannot be escalated.");
+        }
+
+        if (PriorityPolicy.Raise(Priority) is null)
+        {
+            throw new BusinessRuleViolationException(
+                $"Ticket {Reference} is already {Priority} and cannot be escalated.");
+        }
+    }
+
+    /// <summary>
+    /// Escalates the ticket: it takes the new priority and due date, its SLA window starts again
+    /// from now, and it gets the new owner or, if nobody can take it, the reason why. Returns the
+    /// history row that records the change.
+    /// </summary>
+    /// <remarks>
+    /// The caller works out the new priority, due date and owner with the triage rules; this only
+    /// applies them, and keeps the before and after together in one record.
+    /// </remarks>
+    /// <exception cref="BusinessRuleViolationException">The ticket cannot be escalated.</exception>
+    public TicketEscalation Escalate(
+        TicketPriority toPriority,
+        DateTime toDueAtUtc,
+        int? toAgentId,
+        string? unassignedReason,
+        string reason,
+        string escalatedBy,
+        DateTime nowUtc)
+    {
+        EnsureCanBeEscalated();
+
+        var escalation = new TicketEscalation(
+            Id,
+            fromPriority: Priority,
+            toPriority,
+            fromAgentId: AssignedAgentId,
+            toAgentId,
+            fromDueAtUtc: DueAtUtc,
+            toDueAtUtc,
+            reason.Trim(),
+            escalatedBy.Trim(),
+            nowUtc);
+
+        Priority = toPriority;
+        DueAtUtc = toDueAtUtc;
+        SlaStartedAtUtc = nowUtc;
+        AssignTo(toAgentId, nowUtc);
+        UnassignedReason = toAgentId is null ? unassignedReason : null;
+
+        return escalation;
+    }
+
+    /// <summary>
     /// Moves the ticket through its lifecycle, keeping the resolution timestamp in step.
     /// </summary>
     /// <exception cref="BusinessRuleViolationException">The ticket is closed.</exception>

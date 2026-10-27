@@ -110,6 +110,29 @@ public sealed class TicketQueries(SupportDbContext db, IClock clock, SlaSettings
             .ToListAsync(ct);
     }
 
+    public async Task<IReadOnlyList<EscalationDto>> GetEscalationsAsync(int ticketId, CancellationToken ct) =>
+        await (from escalation in db.Set<TicketEscalation>().AsNoTracking()
+               where escalation.TicketId == ticketId
+               from fromAgent in db.Set<Agent>().Where(a => a.Id == escalation.FromAgentId).DefaultIfEmpty()
+               from toAgent in db.Set<Agent>().Where(a => a.Id == escalation.ToAgentId).DefaultIfEmpty()
+               orderby escalation.EscalatedAtUtc descending, escalation.Id descending
+               select new EscalationDto(
+                   escalation.Id,
+                   escalation.TicketId,
+                   escalation.FromPriority,
+                   escalation.ToPriority,
+                   fromAgent == null ? null : new AgentSummaryDto(fromAgent.Id, fromAgent.FullName),
+                   toAgent == null ? null : new AgentSummaryDto(toAgent.Id, toAgent.FullName),
+                   escalation.FromDueAtUtc,
+                   escalation.ToDueAtUtc,
+                   escalation.Reason,
+                   escalation.EscalatedBy,
+                   escalation.EscalatedAtUtc))
+            .ToListAsync(ct);
+
+    public Task<bool> ExistsAsync(int id, CancellationToken ct) =>
+        db.Set<Ticket>().AsNoTracking().AnyAsync(t => t.Id == id, ct);
+
     /// <summary>
     /// Every ticket with the rows that label it. Filter and sort this, then project.
     /// </summary>

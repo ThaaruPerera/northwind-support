@@ -30,15 +30,6 @@ Full requirements are in **[`ASSIGNMENT_CANDIDATE.md`](ASSIGNMENT_CANDIDATE.md)*
 - **Out of scope:** registration, password reset, roles, OAuth/SSO, refresh tokens, MFA,
   notifications, CI, caching, visual redesign. Mention them under *Known limitations* instead.
 
-### Submission
-
-1. Update this **README** with what you built, your design decisions (chosen, rejected and why),
-   the defect's root cause, dev login credentials, how to run and test it, AI usage, and known
-   limitations. A reviewer must be able to run it without asking you anything.
-2. Add an **APPROACH.md** explaining your approach and thought process for each task.
-3. Commit both, then send us the **link to your fork**, the **dev login credentials**, and a
-   **rough note of time spent** on what. (If the fork is private, add the reviewers as collaborators.)
-
 ---
 
 ## Quick start

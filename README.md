@@ -133,6 +133,8 @@ keeps the agent if still eligible. At risk means 25% or less of the window left,
 - The unassigned reason has its own column and is cleared when an agent is assigned. Rejected:
   working it out again on read, when the team has changed.
 - An agent at their limit keeps a ticket they already hold, as it is already in their count.
+- Manual assignment is a team lead override and ignores the agent limit and specialism, as it did
+  before. The ticket page now asks for confirmation first when the chosen agent is at their limit.
 - Rules are small pure classes, with interfaces only at the repositories and the clock. Rejected:
   rules inside the handlers, which would be written twice.
 - `slaStatus` is filtered in SQL, never in C#. A test requires it to agree with `SlaEvaluator`.

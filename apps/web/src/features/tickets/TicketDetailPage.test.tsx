@@ -15,6 +15,7 @@ vi.mock('../../api/tickets', () => ({
     getTicket: vi.fn(),
     getEscalations: vi.fn(),
     escalate: vi.fn(),
+    assignAgent: vi.fn(),
   },
 }));
 vi.mock('../../api/agents', () => ({ agentsApi: { getAgents: vi.fn() } }));
@@ -110,5 +111,38 @@ describe('TicketDetailPage escalation', () => {
 
     expect(screen.getByText('The reason must be at least 5 characters.')).toBeInTheDocument();
     expect(escalate).not.toHaveBeenCalled();
+  });
+});
+
+describe('TicketDetailPage assignment', () => {
+  afterEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it('reloads the agents after an assignment, so their counts are not stale', async () => {
+    const user = userEvent.setup();
+    getTicket.mockResolvedValue(ticketDetail({ assignedAgent: null }));
+    getEscalations.mockResolvedValue([]);
+    vi.mocked(categoriesApi.getCategories).mockResolvedValue([]);
+    vi.mocked(customersApi.getCustomers).mockResolvedValue([]);
+    vi.mocked(agentsApi.getAgents).mockResolvedValue([
+      {
+        id: 1,
+        fullName: 'Alex Turner',
+        email: 'alex.turner@northwind-support.example',
+        isActive: true,
+        maxOpenTickets: 6,
+        openTicketCount: 2,
+        specializations: [],
+      },
+    ]);
+    vi.mocked(ticketsApi.assignAgent).mockResolvedValue(
+      ticketDetail({ assignedAgent: { id: 1, fullName: 'Alex Turner' } }),
+    );
+
+    renderPage();
+    await user.selectOptions(await screen.findByLabelText('Assigned agent'), '1');
+
+    await waitFor(() => expect(agentsApi.getAgents).toHaveBeenCalledTimes(2));
   });
 });

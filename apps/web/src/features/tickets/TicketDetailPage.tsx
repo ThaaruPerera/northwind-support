@@ -61,6 +61,8 @@ export function TicketDetailPage() {
             onEscalated={(result) => {
               setData(result.ticket);
               void escalations.reload();
+              // An escalation can hand the ticket to someone else, which changes who is at their limit.
+              void reference.reload();
             }}
           />
 
@@ -73,7 +75,11 @@ export function TicketDetailPage() {
           <AssignAgentControl
             ticket={ticket}
             agents={reference.data?.agents ?? []}
-            onUpdated={setData}
+            onUpdated={(updated) => {
+              setData(updated);
+              // The counts beside each agent are only right until a ticket changes hands.
+              void reference.reload();
+            }}
           />
         </aside>
       </div>

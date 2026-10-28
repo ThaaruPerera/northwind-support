@@ -14,10 +14,12 @@ interface AssignAgentControlProps {
 export function AssignAgentControl({ ticket, agents, onUpdated }: AssignAgentControlProps) {
   const [isSaving, setIsSaving] = useState(false);
   const [error, setError] = useState<string>();
+  const [pending, setPending] = useState<Agent>();
 
   const assign = async (agentId: number | null) => {
     setIsSaving(true);
     setError(undefined);
+    setPending(undefined);
 
     try {
       onUpdated(await ticketsApi.assignAgent(ticket.id, agentId));
@@ -26,6 +28,23 @@ export function AssignAgentControl({ ticket, agents, onUpdated }: AssignAgentCon
     } finally {
       setIsSaving(false);
     }
+  };
+
+  // Automatic triage never fills an agent past their limit, but a person may. Ask first, since the
+  // agent's count is shown here and going over it is easy to do by accident.
+  const choose = (agentId: number | null) => {
+    const agent = agents.find((candidate) => candidate.id === agentId);
+
+    if (
+      agent &&
+      agent.id !== ticket.assignedAgent?.id &&
+      agent.openTicketCount >= agent.maxOpenTickets
+    ) {
+      setPending(agent);
+      return;
+    }
+
+    void assign(agentId);
   };
 
   return (
@@ -39,7 +58,7 @@ export function AssignAgentControl({ ticket, agents, onUpdated }: AssignAgentCon
             value={ticket.assignedAgent?.id ?? ''}
             disabled={isSaving}
             onChange={(event) =>
-              void assign(event.target.value === '' ? null : Number(event.target.value))
+              choose(event.target.value === '' ? null : Number(event.target.value))
             }
           >
             <option value="">Unassigned</option>
@@ -52,6 +71,27 @@ export function AssignAgentControl({ ticket, agents, onUpdated }: AssignAgentCon
           </select>
         )}
       </Field>
+
+      {pending && (
+        <div role="alertdialog" aria-labelledby="assign-confirm-text" className="field__hint">
+          <p id="assign-confirm-text">
+            {pending.fullName} already has {pending.openTicketCount} of {pending.maxOpenTickets}{' '}
+            open tickets. Assign this one to them anyway?
+          </p>
+          <div className="button-row">
+            <button
+              type="button"
+              className="button button--primary"
+              onClick={() => void assign(pending.id)}
+            >
+              Yes, assign
+            </button>
+            <button type="button" className="button" onClick={() => setPending(undefined)}>
+              No
+            </button>
+          </div>
+        </div>
+      )}
 
       {isSaving && <p className="field__hint">Saving...</p>}
     </div>

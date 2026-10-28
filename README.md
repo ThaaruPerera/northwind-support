@@ -236,6 +236,28 @@ schema, and a failed migration takes every instance down instead of stopping the
 | `docker compose exec api whoami` | `app`, not root |
 | `docker compose run --rm --no-deps --entrypoint ls api -la /app`, then a search of every file in it | 53 files; `appsettings.json` is the only settings file; no database password, dev signing key or connection string anywhere. The only hit is the demo password above |
 
+## AI usage
+
+I used Claude Code to speed up the work: writing code and tests, finding bugs and fixing them. I planned each
+task, made the decisions, and reviewed every change before committing it.
+
+**Workflow.** I planned what to do for each task first, then worked through it step by step and committed each
+change as I went. Many small commits made it easier to see if I had missed anything, and to go back and change
+a step if something went wrong in the middle.
+
+**Bugs.** The AI helped me find the root cause of the filter bug (DEFECT-117), and it helped find other bugs
+along the way, including some in its own code, which saved a lot of time.
+
+**Verification.** After each change I ran the automated tests (about 530 in total), lint and the type checks,
+and tried the app against the real API and Docker.
+
+## Known limitations
+
+- Two people acting at the same moment could be given the same agent past their limit, or both escalate the
+  same ticket, because there is no locking.
+- A deactivated agent's token keeps working until it expires (8 hours). There is also no lockout or rate
+  limiting on login, and no roles.
+
 ## Troubleshooting
 
 | Symptom | Fix |
